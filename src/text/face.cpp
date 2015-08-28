@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -36,12 +36,12 @@ font_face::font_face(FT_Face face)
 
 bool font_face::set_character_sizes(double size)
 {
-    return (FT_Set_Char_Size(face_,0,(FT_F26Dot6)(size * (1<<6)),0,0) == 0);
+    return !FT_Set_Char_Size(face_,0,(FT_F26Dot6)(size * (1<<6)),0,0);
 }
 
 bool font_face::set_unscaled_character_sizes()
 {
-    return (FT_Set_Char_Size(face_,0,face_->units_per_EM,0,0) == 0);
+    return !FT_Set_Char_Size(face_,0,face_->units_per_EM,0,0);
 }
 
 bool font_face::glyph_dimensions(glyph_info & glyph) const

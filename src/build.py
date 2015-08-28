@@ -1,7 +1,7 @@
 #
 # This file is part of Mapnik (c++ mapping toolkit)
 #
-# Copyright (C) 2015 Artem Pavlenko
+# Copyright (C) 2013 Artem Pavlenko
 #
 # Mapnik is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -84,8 +84,7 @@ if '-DHAVE_WEBP' in env['CPPDEFINES']:
    lib_env['LIBS'].append('webp')
    enabled_imaging_libraries.append('webp_reader.cpp')
 
-if env['XMLPARSER'] == 'libxml2' and env['HAS_LIBXML2']:
-    lib_env['LIBS'].append('xml2')
+lib_env['LIBS'].append('xml2')
 
 if '-DBOOST_REGEX_HAS_ICU' in env['CPPDEFINES']:
     lib_env['LIBS'].append('icui18n')
@@ -114,9 +113,6 @@ if env['RUNTIME_LINK'] != 'static':
 
 lib_env['LIBS'].append('z')
 
-if env['PLATFORM'] == 'FreeBSD':
-    lib_env['LIBS'].append('pthread')
-
 if env['PLATFORM'] == 'Darwin':
     mapnik_libname = env.subst(env['MAPNIK_LIB_NAME'])
     if env['FULL_LIB_PATH']:
@@ -136,8 +132,7 @@ else: # unix, non-macos
         else:
             mapnik_lib_link_flag += ' -Wl,-h,%s' %  mapnik_libname
     else: # Linux and others
-        if env['PLATFORM'] != 'FreeBSD':
-            lib_env['LIBS'].append('dl')
+        lib_env['LIBS'].append('dl')
         mapnik_lib_link_flag += ' -Wl,-rpath-link,.'
         if env['ENABLE_SONAME']:
             mapnik_lib_link_flag += ' -Wl,-soname,%s' % mapnik_libname
@@ -157,14 +152,12 @@ source = Split(
     miniz_png.cpp
     color.cpp
     conversions.cpp
-    image_copy.cpp
     image_compositing.cpp
     image_scaling.cpp
     box2d.cpp
     datasource_cache.cpp
     datasource_cache_static.cpp
     debug.cpp
-    geometry_reprojection.cpp
     expression_node.cpp
     expression_string.cpp
     expression.cpp
@@ -177,26 +170,17 @@ source = Split(
     font_set.cpp
     function_call.cpp
     gradient.cpp
+    graphics.cpp
     parse_path.cpp
     image_reader.cpp
-    cairo_io.cpp
-    image.cpp
-    image_view.cpp
-    image_view_any.cpp
-    image_any.cpp
-    image_options.cpp
     image_util.cpp
-    image_util_jpeg.cpp
-    image_util_png.cpp
-    image_util_tiff.cpp
-    image_util_webp.cpp
     layer.cpp
     map.cpp
     load_map.cpp
+    memory.cpp
     palette.cpp
     marker_helpers.cpp
     transform_expression_grammar.cpp
-    geometry_envelope.cpp
     plugin.cpp
     rule.cpp
     save_map.cpp
@@ -245,6 +229,7 @@ source = Split(
     text/placements/dummy.cpp
     text/placements/list.cpp
     text/placements/simple.cpp
+    text/placements/combined.cpp
     group/group_layout_manager.cpp
     group/group_rule.cpp
     group/group_symbolizer_helper.cpp
@@ -254,7 +239,6 @@ source = Split(
     renderer_common.cpp
     renderer_common/render_pattern.cpp
     renderer_common/process_group_symbolizer.cpp
-    math.cpp
     """
     )
 
@@ -263,7 +247,7 @@ if env['PLUGIN_LINKING'] == 'static':
     lib_env.AppendUnique(CPPPATH='../plugins/')
     for plugin in env['REQUESTED_PLUGINS']:
         details = env['PLUGINS'][plugin]
-        if not details['lib'] or details['lib'] in env['LIBS']:
+        if details['lib'] in env['LIBS'] or not details['lib']:
             plugin_env = SConscript('../plugins/input/%s/build.py' % plugin)
             if not plugin_env:
                 print("Notice: no 'plugin_env' variable found for plugin: '%s'" % plugin)
@@ -291,32 +275,25 @@ if env['PLUGIN_LINKING'] == 'static':
         lib_env.Append(CPPDEFINES = '-DMAPNIK_STATIC_PLUGINS')
         libmapnik_defines.append('-DMAPNIK_STATIC_PLUGINS')
 
-# add these to the compile flags no matter what
-# to make it safe to try to compile them from Makefile wrapper
-source += Split("""
-cairo/process_markers_symbolizer.cpp
-cairo/process_group_symbolizer.cpp
-""")
-
 if env['HAS_CAIRO']:
     lib_env.AppendUnique(LIBPATH=env['CAIRO_LIBPATHS'])
     lib_env.Append(CPPDEFINES = '-DHAVE_CAIRO')
     libmapnik_defines.append('-DHAVE_CAIRO')
     lib_env.AppendUnique(CPPPATH=copy(env['CAIRO_CPPPATHS']))
-    source += Split("""
-    cairo/cairo_context.cpp
-    cairo/cairo_renderer.cpp
-    cairo/cairo_render_vector.cpp
-    cairo/process_text_symbolizer.cpp
-    cairo/process_line_symbolizer.cpp
-    cairo/process_line_pattern_symbolizer.cpp
-    cairo/process_polygon_symbolizer.cpp
-    cairo/process_polygon_pattern_symbolizer.cpp
-    cairo/process_debug_symbolizer.cpp
-    cairo/process_point_symbolizer.cpp
-    cairo/process_raster_symbolizer.cpp
-    cairo/process_building_symbolizer.cpp
-    """)
+    source.append('cairo/cairo_context.cpp')
+    source.append('cairo/cairo_renderer.cpp')
+    source.append('cairo/cairo_render_vector.cpp')
+    source.append('cairo/process_markers_symbolizer.cpp')
+    source.append('cairo/process_text_symbolizer.cpp')
+    source.append('cairo/process_group_symbolizer.cpp')
+    source.append('cairo/process_line_symbolizer.cpp')
+    source.append('cairo/process_line_pattern_symbolizer.cpp')
+    source.append('cairo/process_polygon_symbolizer.cpp')
+    source.append('cairo/process_polygon_pattern_symbolizer.cpp')
+    source.append('cairo/process_debug_symbolizer.cpp')
+    source.append('cairo/process_point_symbolizer.cpp')
+    source.append('cairo/process_raster_symbolizer.cpp')
+    source.append('cairo/process_building_symbolizer.cpp')
 
 for cpp in enabled_imaging_libraries:
     source.append(cpp)
@@ -341,15 +318,14 @@ source += Split(
     """
     )
 
+# clipper
+source += Split(
+    """
+     ../deps/clipper/src/clipper.cpp
+    """)
+
 if env['RUNTIME_LINK'] == "static":
     source += glob.glob('../deps/agg/src/' + '*.cpp')
-
-# add these to the compile flags no matter what
-# to make it safe to try to compile them from Makefile wrapper
-source += Split("""
-grid/process_markers_symbolizer.cpp
-grid/process_group_symbolizer.cpp
-""")
 
 # grid backend
 if env['GRID_RENDERER']:
@@ -360,12 +336,14 @@ if env['GRID_RENDERER']:
         grid/process_building_symbolizer.cpp
         grid/process_line_pattern_symbolizer.cpp
         grid/process_line_symbolizer.cpp
+        grid/process_markers_symbolizer.cpp
         grid/process_point_symbolizer.cpp
         grid/process_polygon_pattern_symbolizer.cpp
         grid/process_polygon_symbolizer.cpp
         grid/process_raster_symbolizer.cpp
         grid/process_shield_symbolizer.cpp
         grid/process_text_symbolizer.cpp
+        grid/process_group_symbolizer.cpp
         """)
     lib_env.Append(CPPDEFINES = '-DGRID_RENDERER')
     libmapnik_defines.append('-DGRID_RENDERER')

@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,7 +27,6 @@
 #include <mapnik/text/evaluated_format_properties_ptr.hpp>
 #include <mapnik/value_types.hpp>
 #include <mapnik/util/noncopyable.hpp>
-#include <mapnik/config.hpp>
 
 // stl
 #include <string>
@@ -42,7 +41,7 @@
 namespace mapnik
 {
 
-struct MAPNIK_DECL text_item : util::noncopyable
+struct text_item : util::noncopyable
 {
     text_item(unsigned s,
               unsigned e,
@@ -72,7 +71,7 @@ struct MAPNIK_DECL text_item : util::noncopyable
 // - format
 // - script (http://en.wikipedia.org/wiki/Scripts_in_Unicode)
 
-class MAPNIK_DECL text_itemizer : util::noncopyable
+class text_itemizer
 {
 public:
     text_itemizer();
@@ -87,8 +86,8 @@ public:
 private:
     template<typename T> struct run : util::noncopyable
     {
-        run(T const& _data, unsigned _start, unsigned _end)
-            :  start(_start), end(_end), data(_data) {}
+        run(T const& data, unsigned start, unsigned end)
+            :  start(start), end(end), data(data) {}
         unsigned start;
         unsigned end;
         T data;

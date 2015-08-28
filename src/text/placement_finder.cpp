@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,13 +25,16 @@
 #include <mapnik/view_transform.hpp>
 #include <mapnik/expression_evaluator.hpp>
 #include <mapnik/text/placement_finder_impl.hpp>
-#include <mapnik/text/placements/base.hpp>
 #include <mapnik/text/text_layout.hpp>
 #include <mapnik/text/glyph_info.hpp>
 #include <mapnik/text/text_properties.hpp>
 #include <mapnik/text/glyph_positions.hpp>
 #include <mapnik/vertex_cache.hpp>
-#include <mapnik/util/math.hpp>
+#include <mapnik/text/marker_placement_finder.hpp>
+#include <mapnik/edge_placement_adjuster.h>
+
+// agg
+#include "agg_conv_clip_polyline.h"
 
 // stl
 #include <vector>
@@ -57,11 +60,7 @@ placement_finder::placement_finder(feature_impl const& feature,
       placements_(),
       has_marker_(false),
       marker_(),
-      marker_box_(),
-      marker_unlocked_(false),
-      marker_displacement_(),
-      move_dx_(0.0),
-      horizontal_alignment_(H_LEFT) {}
+      marker_box_() {}
 
 bool placement_finder::next_position()
 {
@@ -90,6 +89,7 @@ bool placement_finder::next_position()
         horizontal_alignment_ = layout->horizontal_alignment();
         return true;
     }
+    MAPNIK_LOG_WARN(placement_finder) << "next_position() called while last call already returned false!\n";
     return false;
 }
 
@@ -97,11 +97,7 @@ text_upright_e placement_finder::simplify_upright(text_upright_e upright, double
 {
     if (upright == UPRIGHT_AUTO)
     {
-        return (std::fabs(util::normalize_angle(angle)) > 0.5*M_PI) ? UPRIGHT_LEFT : UPRIGHT_RIGHT;
-    }
-    if (upright == UPRIGHT_AUTO_DOWN)
-    {
-        return (std::fabs(util::normalize_angle(angle)) < 0.5*M_PI) ? UPRIGHT_LEFT : UPRIGHT_RIGHT;
+        return (std::fabs(normalize_angle(angle)) > 0.5*M_PI) ? UPRIGHT_LEFT : UPRIGHT_RIGHT;
     }
     if (upright == UPRIGHT_LEFT_ONLY)
     {
@@ -116,12 +112,15 @@ text_upright_e placement_finder::simplify_upright(text_upright_e upright, double
 
 bool placement_finder::find_point_placement(pixel_position const& pos)
 {
-    glyph_positions_ptr glyphs = std::make_unique<glyph_positions>();
+    glyph_positions_ptr glyphs = std::make_shared<glyph_positions>();
     std::vector<box2d<double> > bboxes;
 
     glyphs->reserve(layouts_.glyphs_count());
     bboxes.reserve(layouts_.size());
-
+    box2d<double> bbox;
+    
+    double max_line_width = 0.0;
+    double first_line_height = -1.0;
     bool base_point_set = false;
     for (auto const& layout_ptr : layouts_)
     {
@@ -137,13 +136,13 @@ bool placement_finder::find_point_placement(pixel_position const& pos)
             base_point_set = true;
         }
 
-        box2d<double> bbox = layout.bounds();
+        bbox = layout.bounds();
         bbox.re_center(layout_center.x, layout_center.y);
 
         /* For point placements it is faster to just check the bounding box. */
         if (collision(bbox, layouts_.text(), false)) return false;
 
-        if (layout.glyphs_count()) bboxes.push_back(std::move(bbox));
+        if (layout.num_lines()) bboxes.push_back(std::move(bbox));
 
         pixel_position layout_offset = layout_center - glyphs->get_base_point();
         layout_offset.y = -layout_offset.y;
@@ -158,12 +157,19 @@ bool placement_finder::find_point_placement(pixel_position const& pos)
 
         // set for upper left corner of text envelope for the first line, top left of first character
         y = layout.height() / 2.0;
-
+        
         for ( auto const& line : layout)
         {
             y -= line.height(); //Automatically handles first line differently
             x = layout.jalign_offset(line.width());
-
+            if(line.width() > max_line_width)
+            {
+                max_line_width = line.width();
+            }
+            if(first_line_height <= 0.0 )
+            {
+                first_line_height = line.line_height() / scale_factor_;
+            }
             for (auto const& glyph : line)
             {
                 // place the character relative to the center of the string envelope
@@ -176,30 +182,33 @@ bool placement_finder::find_point_placement(pixel_position const& pos)
             }
         }
     }
-
+    
     // add_marker first checks for collision and then updates the detector.
-    if (has_marker_ && !add_marker(glyphs, pos, bboxes)) return false;
-
-    box2d<double> label_box;
-    bool first = true;
-    for (box2d<double> const& box : bboxes)
+    if (has_marker_ )
     {
-        if (first)
+        agg::trans_affine placement_tr;
+        if(text_props_->fit_marker && glyphs->size() > 0)
         {
-            label_box = box;
-            first = false;
+            double padding = 0.1;
+            double width_scale = bbox.width() / marker_box_.width() + 2*padding;        // 2 because the text is being padded on both sides.
+            double heigh_scale = bbox.height() / marker_box_.height() + 2*padding;      // 2 because the text is being padded on both sides.
+            placement_tr.scale(width_scale, heigh_scale);
+            //now we will need to shift the bbox it will fit the padding
+            placement_tr.translate(- padding, - padding );
         }
-        else
+        if(!add_marker(glyphs, pos, false, placement_tr))
         {
-            label_box.expand_to_include(box);
+            return false;
         }
-        detector_.insert(box, layouts_.text());
     }
-    // do not render text off the canvas
-    if (extent_.intersects(label_box))
+    
+    
+    
+    for (box2d<double> const& bbox : bboxes)
     {
-        placements_.push_back(std::move(glyphs));
+        detector_.insert(bbox, layouts_.text());
     }
+    placements_.push_back(glyphs);
 
     return true;
 }
@@ -213,21 +222,25 @@ bool placement_finder::single_line_placement(vertex_cache &pp, text_upright_e or
     vertex_cache::scoped_state begin(pp);
     text_upright_e real_orientation = simplify_upright(orientation, pp.angle());
 
-    glyph_positions_ptr glyphs = std::make_unique<glyph_positions>();
-    std::vector<box2d<double> > bboxes;
+    glyph_positions_ptr glyphs = std::make_shared<glyph_positions>();
+    std::vector<box2d<double> > bboxes_all;
     glyphs->reserve(layouts_.glyphs_count());
-    bboxes.reserve(layouts_.glyphs_count());
+    bboxes_all.reserve(layouts_.glyphs_count());
 
     unsigned upside_down_glyph_count = 0;
-
+    marker_placement_finder_ptr marker_placement_ptr;
     for (auto const& layout_ptr : layouts_)
     {
         text_layout const& layout = *layout_ptr;
+       
+        if(has_marker_ && layout.shield_layout())
+        {
+             marker_placement_ptr = std::make_shared<marker_placement_finder>(layout_ptr);
+        }
         pixel_position align_offset = layout.alignment_offset();
         pixel_position const& layout_displacement = layout.displacement();
         double sign = (real_orientation == UPRIGHT_LEFT) ? -1 : 1;
-        //double offset = 0 - (layout_displacement.y + 0.5 * sign * layout.height());
-        double offset = layout_displacement.y - 0.5 * sign * layout.height();
+        double offset = layout_displacement.y + 0.5 * sign * layout.height();
         double adjust_character_spacing = .0;
         double layout_width = layout.width();
         bool adjust = layout.horizontal_alignment() == H_ADJUST;
@@ -241,12 +254,25 @@ bool placement_finder::single_line_placement(vertex_cache &pp, text_upright_e or
                 layout_width = longest_line->glyphs_width() + longest_line->space_count() * adjust_character_spacing;
             }
         }
-
+        //find the proper center line
+        int line_count = layout.num_lines() % 2 == 0 ? layout.num_lines() : layout.num_lines() - 1;
+        int centre_line_index = line_count/2;
+        int line_index = -1;
         for (auto const& line : layout)
         {
+            line_index++;
+            if(has_marker_ && marker_placement_ptr &&
+               (line_index == centre_line_index))
+            {
+                marker_placement_ptr->line_size(line.size());
+            }
             // Only subtract half the line height here and half at the end because text is automatically
             // centered on the line
-            offset += sign * line.height()/2;
+            if (layout.num_lines() == 1 || (layout.num_lines() > 1 && line_index != 0))
+            {
+                offset -= sign * line.height()/2;
+            }
+            
             vertex_cache & off_pp = pp.get_offseted(offset, sign * layout_width);
             vertex_cache::scoped_state off_state(off_pp); // TODO: Remove this when a clean implementation in vertex_cache::get_offseted is done
             double line_width = adjust ? (line.glyphs_width() + line.space_count() * adjust_character_spacing) : line.width();
@@ -256,9 +282,10 @@ bool placement_finder::single_line_placement(vertex_cache &pp, text_upright_e or
             double last_cluster_angle = 999;
             int current_cluster = -1;
             pixel_position cluster_offset;
-            double angle = 0;
+            double angle = 0.0;
             rotation rot;
-            double last_glyph_spacing = 0.0;
+            double last_glyph_spacing = 0.;
+
             for (auto const& glyph : line)
             {
                 if (current_cluster != static_cast<int>(glyph.char_index))
@@ -266,38 +293,28 @@ bool placement_finder::single_line_placement(vertex_cache &pp, text_upright_e or
                     if (adjust)
                     {
                         if (!off_pp.move(sign * (layout.cluster_width(current_cluster) + last_glyph_spacing)))
-                        {
                             return false;
-                        }
                         last_glyph_spacing = adjust_character_spacing;
                     }
                     else
                     {
                         if (!off_pp.move_to_distance(sign * (layout.cluster_width(current_cluster) + last_glyph_spacing)))
-                        {
                             return false;
-                        }
                         last_glyph_spacing = glyph.format->character_spacing * scale_factor_;
                     }
                     current_cluster = glyph.char_index;
                     // Only calculate new angle at the start of each cluster!
-                    // Y axis is inverted.
-                    // See note about coordinate systems in placement_finder::find_point_placement().
-                    angle = -util::normalize_angle(off_pp.angle(sign * layout.cluster_width(current_cluster)));
+                    angle = normalize_angle(off_pp.angle(sign * layout.cluster_width(current_cluster)));
                     rot.init(angle);
                     if ((text_props_->max_char_angle_delta > 0) && (last_cluster_angle != 999) &&
-                        std::fabs(util::normalize_angle(angle - last_cluster_angle)) > text_props_->max_char_angle_delta)
+                        std::fabs(normalize_angle(angle-last_cluster_angle)) > text_props_->max_char_angle_delta)
                     {
                         return false;
                     }
                     cluster_offset.clear();
                     last_cluster_angle = angle;
                 }
-
-                if (std::abs(angle) > M_PI/2)
-                {
-                    ++upside_down_glyph_count;
-                }
+                if (std::abs(angle) > M_PI/2) ++upside_down_glyph_count;
 
                 pixel_position pos = off_pp.current_position() + cluster_offset;
                 // Center the text on the line
@@ -310,14 +327,39 @@ bool placement_finder::single_line_placement(vertex_cache &pp, text_upright_e or
 
                 box2d<double> bbox = get_bbox(layout, glyph, pos, rot);
                 if (collision(bbox, layouts_.text(), true)) return false;
-                bboxes.push_back(std::move(bbox));
-                glyphs->emplace_back(glyph, pos, rot);
+                
+                //Whitespace glyphs have 0 height - sadly, there is no other easily
+                //  accessible data in a glyph to indicate that it is whitespace.
+                bool glyph_is_empty = (0 == glyph.height());
+                
+                //Collect all glyphs and angles for the centre line, in the case a
+                //  marker position needs to be calculated later
+                if(has_marker_ && marker_placement_ptr
+                   && layout.shield_layout()
+                   && (line_index == centre_line_index))
+                {
+                    marker_placement_ptr->add_angle(angle);
+                    marker_placement_ptr->add_bbox(bbox);
+                }
+                
+                //If the glyph is empty, don't draw it, and don't include it in the
+                //  overall bounding box. This means that leading and trailing
+                //  whitespace characters don't take up extra space where other
+                //  symbols could be placed on a map.
+                if(!glyph_is_empty)
+                {
+                    bboxes_all.push_back(std::move(bbox));
+                    glyphs->emplace_back(glyph, pos, rot);
+                }
             }
             // See comment above
-            offset += sign * line.height()/2;
+            offset -= sign * line.height()/2;
+        }
+        if(marker_placement_ptr)
+        {
+            marker_placement_ptr->align_offset(align_offset);
         }
     }
-
     if (upside_down_glyph_count > static_cast<unsigned>(layouts_.text().length() / 2))
     {
         if (orientation == UPRIGHT_AUTO)
@@ -326,47 +368,66 @@ bool placement_finder::single_line_placement(vertex_cache &pp, text_upright_e or
             begin.restore();
             return single_line_placement(pp, real_orientation == UPRIGHT_RIGHT ? UPRIGHT_LEFT : UPRIGHT_RIGHT);
         }
-        // upright==left-only or right-only and more than 50% of characters upside down => no placement
+        // upright==left_only or right_only and more than 50% of characters upside down => no placement
         else if (orientation == UPRIGHT_LEFT_ONLY || orientation == UPRIGHT_RIGHT_ONLY)
         {
             return false;
         }
     }
-    else if (orientation == UPRIGHT_AUTO_DOWN)
+    
+    //NOTE: Because of the glyph_is_empty check above, whitespace characters
+    //      don't factor in to the bounding box. This way, whitespace used for
+    //      layout adjustment purposes don't artificially increase the size of
+    //      the bounding box and reduce the density of possible mapnik symbols.
+    box2d<double> overall_bbox;
+    bool overall_bbox_initialized = false;
+    for(box2d<double> const& bbox : bboxes_all)
     {
-        // Try again with opposite orientation
-        begin.restore();
-        return single_line_placement(pp, real_orientation == UPRIGHT_RIGHT ? UPRIGHT_LEFT : UPRIGHT_RIGHT);
-    }
-
-    box2d<double> label_box;
-    bool first = true;
-    for (box2d<double> const& box : bboxes)
-    {
-        if (first)
+        detector_.insert(bbox, layouts_.text());
+        if(overall_bbox_initialized)
         {
-            label_box = box;
-            first = false;
+            overall_bbox.expand_to_include(bbox);
         }
         else
         {
-            label_box.expand_to_include(box);
+            overall_bbox = bbox;
         }
-        detector_.insert(box, layouts_.text());
     }
-    // do not render text off the canvas
-    if (extent_.intersects(label_box))
+    
+    //WI: loop over marker_placements and place the markers for each layout
+    if(has_marker_ && marker_placement_ptr )
     {
-        placements_.push_back(std::move(glyphs));
+        pixel_position marker_pos;
+        double marker_cw_angle = 0.0;
+        marker_placement_ptr->find_marker_placement(scale_factor_, marker_pos, marker_cw_angle);
+        agg::trans_affine placement_tr;
+        placement_tr.rotate( marker_cw_angle );
+        add_marker(glyphs, marker_pos, true, placement_tr);
+        detector_.insert(overall_bbox, layouts_.text());
     }
-
+    placements_.push_back(glyphs);
     return true;
 }
-
+    
 void placement_finder::path_move_dx(vertex_cache & pp, double dx)
 {
     vertex_cache::state state = pp.save_state();
     if (!pp.move(dx)) pp.restore_state(state);
+}
+
+double placement_finder::normalize_angle(double angle)
+{
+    while (angle >= M_PI)
+    {
+        angle -= 2.0 * M_PI;
+    }
+    while (angle < -M_PI)
+    {
+        angle += 2.0 * M_PI;
+    }
+    // y axis is inverted.
+    // See note about coordinate systems in placement_finder::find_point_placement().
+    return -angle;
 }
 
 double placement_finder::get_spacing(double path_length, double layout_width) const
@@ -397,7 +458,9 @@ bool placement_finder::collision(const box2d<double> &box, const value_unicode_s
         margin = (text_props_->margin != 0 ? text_props_->margin : text_props_->minimum_distance) * scale_factor_;
         repeat_distance = text_props_->repeat_distance * scale_factor_;
     }
-    return (text_props_->avoid_edges && !extent_.contains(box))
+    return !detector_.extent().intersects(box)
+        ||
+        (text_props_->avoid_edges && !extent_.contains(box))
         ||
         (text_props_->minimum_padding > 0 &&
          !extent_.contains(box + (scale_factor_ * text_props_->minimum_padding)))
@@ -416,17 +479,35 @@ void placement_finder::set_marker(marker_info_ptr m, box2d<double> box, bool mar
     marker_unlocked_ = marker_unlocked;
     has_marker_ = true;
 }
-
-
-bool placement_finder::add_marker(glyph_positions_ptr & glyphs, pixel_position const& pos, std::vector<box2d<double>> & bboxes) const
+    
+bool placement_finder::add_marker(glyph_positions_ptr glyphs, pixel_position const& pos, bool line_placement, agg::trans_affine const& placement_tr) const
 {
     pixel_position real_pos = (marker_unlocked_ ? pos : glyphs->get_base_point()) + marker_displacement_;
     box2d<double> bbox = marker_box_;
     bbox.move(real_pos.x, real_pos.y);
-    if (collision(bbox, layouts_.text(), false)) return false;
+    
+    if(!line_placement && text_props_->adjust_edges)
+    {
+        edge_placement_adjuster adjuster;
+        agg::trans_affine tr;
+        tr *= marker_->transform; //apply any transform specified in the style xml
+        tr *= placement_tr; //apply any special placement transform
+        if(adjuster.adjust_edge_placement(tr, marker_box_, detector_.extent(), bbox, real_pos.x, real_pos.y))
+        {
+            bbox = marker_box_;
+            bbox.move(real_pos.x, real_pos.y);
+            if(!marker_unlocked_)
+            {
+                glyphs->set_base_point(real_pos);
+            }
+        }
+    }
+    
+    //WI: Added John's changes for marker rotation 13NOV2014 (transform in general)
+    glyphs->set_marker(marker_, real_pos, bbox, placement_tr);
+    
+    if (collision(bbox, layouts_.text(), line_placement)) return false;
     detector_.insert(bbox);
-    bboxes.push_back(std::move(bbox));
-    glyphs->set_marker(marker_, real_pos);
     return true;
 }
 

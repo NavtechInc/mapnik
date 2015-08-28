@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,7 +24,6 @@
 #define MAPNIK_SVG_PARSER_HPP
 
 // mapnik
-#include <mapnik/config.hpp>
 #include <mapnik/svg/svg_path_attributes.hpp>
 #include <mapnik/svg/svg_converter.hpp>
 #include <mapnik/svg/svg_path_adapter.hpp>
@@ -36,20 +35,17 @@
 
 namespace  mapnik { namespace svg {
 
-    class MAPNIK_DECL svg_parser : private util::noncopyable
+    class svg_parser : private util::noncopyable
     {
-        using error_message_container = std::vector<std::string> ;
     public:
         explicit svg_parser(svg_converter_type & path);
         ~svg_parser();
-        error_message_container const& error_messages() const;
-        bool parse(std::string const& filename);
-        bool parse_from_string(std::string const& svg);
+        void parse(std::string const& filename);
+        void parse_from_string(std::string const& svg);
         svg_converter_type & path_;
         bool is_defs_;
         std::map<std::string, gradient> gradient_map_;
         std::pair<std::string, gradient> temporary_gradient_;
-        error_message_container error_messages_;
     };
 
 }}

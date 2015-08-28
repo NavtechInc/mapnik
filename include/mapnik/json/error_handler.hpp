@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,10 +25,7 @@
 
 #include <string>
 #include <sstream>
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-conversion"
 #include <boost/spirit/home/support/info.hpp>
-#pragma GCC diagnostic pop
 
 namespace mapnik { namespace json {
 
@@ -37,14 +34,11 @@ struct error_handler
 {
     using result_type = void;
     void operator() (
-        Iterator, Iterator,
+        Iterator, Iterator last,
         Iterator err_pos, boost::spirit::info const& what) const
     {
         std::stringstream s;
-        auto start = err_pos;
-        std::advance(err_pos,16);
-        auto end = err_pos;
-        s << what << " expected but got: " << std::string(start, end);
+        s << what << " expected but got: " << std::string(err_pos, std::min(err_pos + 16,last));
         throw std::runtime_error(s.str());
     }
 };

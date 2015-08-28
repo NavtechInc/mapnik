@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -31,12 +31,12 @@
 
 // mapnik
 #include <mapnik/debug.hpp>
+#include <mapnik/utils.hpp>
 #include <mapnik/datasource.hpp>
 #include <mapnik/params.hpp>
+#include <mapnik/geometry.hpp>
 #include <mapnik/sql_utils.hpp>
 #include <mapnik/util/fs.hpp>
-#include <mapnik/geometry_is_empty.hpp>
-#include <mapnik/geometry_envelope.hpp>
 
 // boost
 #pragma GCC diagnostic push
@@ -195,20 +195,23 @@ public:
             const char* data = static_cast<const char*>(rs->column_blob(0, size));
             if (data)
             {
-                mapnik::geometry::geometry<double> geom = mapnik::geometry_utils::from_wkb(data, size, mapnik::wkbAuto);
-                if (!mapnik::geometry::is_empty(geom))
+                mapnik::geometry_container paths;
+                if (mapnik::geometry_utils::from_wkb(paths, data, size, mapnik::wkbAuto))
                 {
-                    mapnik::box2d<double> bbox = mapnik::geometry::envelope(geom);
-                    if (bbox.valid())
+                    for (unsigned i=0; i<paths.size(); ++i)
                     {
-                        if (first)
+                        mapnik::box2d<double> const& bbox = paths[i].envelope();
+                        if (bbox.valid())
                         {
-                            first = false;
-                            extent = bbox;
-                        }
-                        else
-                        {
-                            extent.expand_to_include(bbox);
+                            if (first)
+                            {
+                                first = false;
+                                extent = bbox;
+                            }
+                            else
+                            {
+                                extent.expand_to_include(bbox);
+                            }
                         }
                     }
                 }
@@ -279,32 +282,43 @@ public:
                 const char* data = (const char*) rs->column_blob(0, size);
                 if (data)
                 {
-                    mapnik::geometry::geometry<double> geom = mapnik::geometry_utils::from_wkb(data, size, mapnik::wkbAuto);
-                    if (!mapnik::geometry::is_empty(geom))
+                    mapnik::geometry_container paths;
+                    mapnik::box2d<double> bbox;
+                    if (mapnik::geometry_utils::from_wkb(paths, data, size, mapnik::wkbAuto))
                     {
-                        mapnik::box2d<double> bbox = mapnik::geometry::envelope(geom);
-                        if (bbox.valid())
+                        for (unsigned i=0; i<paths.size(); ++i)
                         {
-                            ps.bind(bbox);
-                            const int type_oid = rs->column_type(1);
-                            if (type_oid != SQLITE_INTEGER)
+                            if (i==0)
                             {
-                                std::ostringstream error_msg;
-                                error_msg << "Sqlite Plugin: invalid type for key field '"
-                                          << rs->column_name(1) << "' when creating index '" << index_table
-                                          << "' type was: " << type_oid << "";
-                                throw mapnik::datasource_exception(error_msg.str());
+                                bbox = paths[i].envelope();
                             }
-                            const sqlite_int64 pkid = rs->column_integer64(1);
-                            ps.bind(pkid);
+                            else
+                            {
+                                bbox.expand_to_include(paths[i].envelope());
+                            }
                         }
-                        else
+                    }
+                    if (bbox.valid())
+                    {
+                        ps.bind(bbox);
+                        const int type_oid = rs->column_type(1);
+                        if (type_oid != SQLITE_INTEGER)
                         {
                             std::ostringstream error_msg;
-                            error_msg << "SQLite Plugin: encountered invalid bbox at '"
-                                      << rs->column_name(1) << "' == " << rs->column_integer64(1);
+                            error_msg << "Sqlite Plugin: invalid type for key field '"
+                                      << rs->column_name(1) << "' when creating index '" << index_table
+                                      << "' type was: " << type_oid << "";
                             throw mapnik::datasource_exception(error_msg.str());
                         }
+                        const sqlite_int64 pkid = rs->column_integer64(1);
+                        ps.bind(pkid);
+                    }
+                    else
+                    {
+                        std::ostringstream error_msg;
+                        error_msg << "SQLite Plugin: encountered invalid bbox at '"
+                                  << rs->column_name(1) << "' == " << rs->column_integer64(1);
+                        throw mapnik::datasource_exception(error_msg.str());
                     }
                     ps.step_next();
                     one_success = true;
@@ -355,33 +369,36 @@ public:
             const char* data = static_cast<const char*>(rs->column_blob(0, size));
             if (data)
             {
-                mapnik::geometry::geometry<double> geom = mapnik::geometry_utils::from_wkb(data, size, mapnik::wkbAuto);
-                if (!mapnik::geometry::is_empty(geom))
+                mapnik::geometry_container paths;
+                if (mapnik::geometry_utils::from_wkb(paths, data, size, mapnik::wkbAuto))
                 {
-                    mapnik::box2d<double> bbox = mapnik::geometry::envelope(geom);
-                    if (bbox.valid())
+                    for (unsigned i=0; i<paths.size(); ++i)
                     {
-                        const int type_oid = rs->column_type(1);
-                        if (type_oid != SQLITE_INTEGER)
+                        mapnik::box2d<double> const& bbox = paths[i].envelope();
+                        if (bbox.valid())
+                        {
+                            const int type_oid = rs->column_type(1);
+                            if (type_oid != SQLITE_INTEGER)
+                            {
+                                std::ostringstream error_msg;
+                                error_msg << "Sqlite Plugin: invalid type for key field '"
+                                          << rs->column_name(1) << "' when creating index "
+                                          << "type was: " << type_oid << "";
+                                throw mapnik::datasource_exception(error_msg.str());
+                            }
+                            const sqlite_int64 pkid = rs->column_integer64(1);
+                            rtree_type entry = rtree_type();
+                            entry.pkid = pkid;
+                            entry.bbox = bbox;
+                            rtree_list.push_back(entry);
+                        }
+                        else
                         {
                             std::ostringstream error_msg;
-                            error_msg << "Sqlite Plugin: invalid type for key field '"
-                                      << rs->column_name(1) << "' when creating index "
-                                      << "type was: " << type_oid << "";
+                            error_msg << "SQLite Plugin: encountered invalid bbox at '"
+                                      << rs->column_name(1) << "' == " << rs->column_integer64(1);
                             throw mapnik::datasource_exception(error_msg.str());
                         }
-                        const sqlite_int64 pkid = rs->column_integer64(1);
-                        rtree_type entry = rtree_type();
-                        entry.pkid = pkid;
-                        entry.bbox = bbox;
-                        rtree_list.push_back(entry);
-                    }
-                    else
-                    {
-                        std::ostringstream error_msg;
-                        error_msg << "SQLite Plugin: encountered invalid bbox at '"
-                                  << rs->column_name(1) << "' == " << rs->column_integer64(1);
-                        throw mapnik::datasource_exception(error_msg.str());
                     }
                 }
             }
@@ -483,13 +500,41 @@ public:
     {
         if (! metadata.empty())
         {
+            //@TODO:WI to support older ogr2ogr schema the column is called table_name
+            std::string table_name = "f_table_name";
+            if( metadata == "layer_statistics" )
+            {
+                table_name = "table_name";
+            }
+            
             std::ostringstream s;
-            s << "SELECT xmin, ymin, xmax, ymax FROM " << metadata;
-            s << " WHERE LOWER(f_table_name) = LOWER('" << geometry_table << "')";
+            //s << "SELECT xmin, ymin, xmax, ymax FROM " << metadata;
+            //WI: the ogr2ogr driver spits out different column names for the layer extent
+            s << "SELECT extent_min_x, extent_min_y, extent_max_x, extent_max_y FROM " << metadata;
+            s << " WHERE LOWER(" << table_name << ") = LOWER('" << geometry_table << "')";
             MAPNIK_LOG_DEBUG(sqlite) << "sqlite_datasource: executing: '" << s.str() << "'";
             std::shared_ptr<sqlite_resultset> rs(ds->execute_query(s.str()));
             if (rs->is_valid() && rs->step_next())
             {
+                
+                if( rs->column_isnull(0) || rs->column_isnull(1) ||
+                    rs->column_isnull(2) || rs->column_isnull(3) )
+                {
+                    //WI: if any of the extent columns are empty, recompute the whole extent for the layer
+                    std::ostringstream s1;
+                    s1 << "Update " << metadata << " set extent_min_x = (SELECT MIN(xmin) FROM " << index_table << "), extent_min_y = (SELECT MIN(ymin) FROM " << index_table << "), extent_max_x = (SELECT MAX(xmax) FROM " << index_table << "), extent_max_y = (SELECT MAX(ymax) FROM " << index_table << ") WHERE LOWER(" << table_name << ")=LOWER('" << geometry_table << "')";
+                    
+                    MAPNIK_LOG_DEBUG(sqlite) << "sqlite_datasource: executing: '" << s1.str() << "'";
+                    ds->execute(s1.str()); //update the values
+                    MAPNIK_LOG_DEBUG(sqlite) << "sqlite_datasource: re-executing: '" << s.str() << "'";
+                    rs = ds->execute_query(s.str()); //re-execute the original query for extent
+                    if (!rs->is_valid() || !rs->step_next())
+                    {
+                        //failed to re-compute extent
+                        return false;
+                    }
+                }
+                
                 double xmin = rs->column_double(0);
                 double ymin = rs->column_double(1);
                 double xmax = rs->column_double(2);

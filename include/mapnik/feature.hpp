@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,8 +29,7 @@
 #include <mapnik/value.hpp>
 #include <mapnik/box2d.hpp>
 #include <mapnik/geometry.hpp>
-#include <mapnik/geometry_envelope.hpp>
-//
+#include <mapnik/geometry_container.hpp>
 #include <mapnik/feature_kv_iterator.hpp>
 #include <mapnik/util/noncopyable.hpp>
 
@@ -41,7 +40,6 @@
 #include <ostream>                      // for basic_ostream, operator<<, etc
 #include <sstream>                      // for basic_stringstream
 #include <stdexcept>                    // for out_of_range
-#include <iostream>
 
 namespace mapnik {
 
@@ -105,8 +103,9 @@ public:
         : id_(id),
         ctx_(ctx),
         data_(ctx_->mapping_.size()),
-        geom_(geometry::geometry_empty()),
-        raster_() {}
+        geom_cont_(),
+        raster_()
+        {}
 
     inline mapnik::value_integer id() const { return id_;}
 
@@ -115,13 +114,13 @@ public:
     template <typename T>
     inline void put(context_type::key_type const& key, T const& val)
     {
-        put(key, value(val));
+        put(key, std::move(value(val)));
     }
 
     template <typename T>
     inline void put_new(context_type::key_type const& key, T const& val)
     {
-        put_new(key, value(val));
+        put_new(key,std::move(value(val)));
     }
 
     inline void put(context_type::key_type const& key, value && val)
@@ -195,24 +194,55 @@ public:
         return ctx_;
     }
 
-    inline void set_geometry(geometry::geometry<double> && geom)
+    inline geometry_container const& paths() const
     {
-        geom_ = std::move(geom);
+        return geom_cont_;
     }
 
-    inline void set_geometry_copy(geometry::geometry<double> const& geom)
+    inline geometry_container & paths()
     {
-        geom_ = geom;
+        return geom_cont_;
     }
 
-    inline geometry::geometry<double> const& get_geometry() const
+    inline void add_geometry(geometry_type * geom)
     {
-        return geom_;
+        geom_cont_.push_back(geom);
+    }
+
+    inline std::size_t num_geometries() const
+    {
+        return geom_cont_.size();
+    }
+
+    inline geometry_type const& get_geometry(std::size_t index) const
+    {
+        return geom_cont_[index];
+    }
+
+    inline geometry_type& get_geometry(std::size_t index)
+    {
+        return geom_cont_[index];
     }
 
     inline box2d<double> envelope() const
     {
-        return mapnik::geometry::envelope(geom_);
+        // TODO - cache this
+        box2d<double> result;
+        bool first = true;
+        for (auto const& geom : geom_cont_)
+        {
+            if (first)
+            {
+                box2d<double> box = geom.envelope();
+                result.init(box.minx(),box.miny(),box.maxx(),box.maxy());
+                first = false;
+            }
+            else
+            {
+                result.expand_to_include(geom.envelope());
+            }
+        }
+        return result;
     }
 
     inline raster_ptr const& get_raster() const
@@ -262,7 +292,7 @@ private:
     mapnik::value_integer id_;
     context_ptr ctx_;
     cont_type data_;
-    geometry::geometry<double> geom_;
+    geometry_container geom_cont_;
     raster_ptr raster_;
 };
 

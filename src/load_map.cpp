@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -65,9 +65,10 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/static_assert.hpp>
-
-// stl
-#include <algorithm>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-local-typedef"
+#include <boost/algorithm/string.hpp>
+#pragma GCC diagnostic pop
 
 // agg
 #include "agg_trans_affine.h"
@@ -80,7 +81,7 @@ using boost::optional;
 
 constexpr unsigned name2int(const char *str, int off = 0)
 {
-    return !str[off] ? 5381 : (name2int(str, off+1)*33) ^ static_cast<unsigned>(str[off]);
+    return !str[off] ? 5381 : (name2int(str, off+1)*33) ^ str[off];
 }
 
 class map_parser : util::noncopyable
@@ -129,7 +130,6 @@ private:
     void find_unused_nodes_recursive(xml_node const& node, std::string & error_text);
     std::string ensure_relative_to_xml(boost::optional<std::string> const& opt_path);
     void ensure_exists(std::string const& file_path);
-    void check_styles(Map const & map) const throw (config_error);
     boost::optional<color> get_opt_color_attr(boost::property_tree::ptree const& node,
                                               std::string const& name);
 
@@ -144,19 +144,22 @@ private:
     std::string xml_base_path_;
 };
 
-
+//#include <mapnik/internal/dump_xml.hpp>
 void load_map(Map & map, std::string const& filename, bool strict, std::string base_path)
 {
-    xml_tree tree;
+    // TODO - use xml encoding?
+    xml_tree tree("utf8");
     tree.set_filename(filename);
     read_xml(filename, tree.root());
     map_parser parser(map, strict, filename);
     parser.parse_map(map, tree.root(), base_path);
+    //dump_xml(tree.root());
 }
 
 void load_map_string(Map & map, std::string const& str, bool strict, std::string base_path)
 {
-    xml_tree tree;
+    // TODO - use xml encoding?
+    xml_tree tree("utf8");
     if (!base_path.empty())
     {
         read_xml_string(str, tree.root(), base_path); // accept base_path passed into function
@@ -196,7 +199,7 @@ void map_parser::parse_map(Map & map, xml_node const& node, std::string const& b
             {
                 map.set_background(*bgcolor);
             }
-            
+
             optional<std::string> image_filename = map_node.get_opt_attr<std::string>("background-image");
             if (image_filename)
             {
@@ -235,7 +238,7 @@ void map_parser::parse_map(Map & map, xml_node const& node, std::string const& b
             }
             map.set_srs(srs);
 
-            optional<int> buffer_size = map_node.get_opt_attr<int>("buffer-size");
+            optional<unsigned> buffer_size = map_node.get_opt_attr<unsigned>("buffer-size");
             if (buffer_size)
             {
                 map.set_buffer_size(*buffer_size);
@@ -326,10 +329,6 @@ void map_parser::parse_map(Map & map, xml_node const& node, std::string const& b
         throw config_error("Not a map file. Node 'Map' not found.");
     }
     find_unused_nodes(node);
-    if (strict_)
-    {
-        check_styles(map);
-    }
 }
 
 void map_parser::parse_map_include(Map & map, xml_node const& node)
@@ -384,8 +383,8 @@ void map_parser::parse_map_include(Map & map, xml_node const& node)
                         mapnik::value_bool b;
                         mapnik::value_integer i;
                         mapnik::value_double d;
-                        if (mapnik::util::string2int(val,i)) params[key] = i;
-                        else if (mapnik::util::string2bool(val,b)) params[key] = b;
+                        if (mapnik::util::string2bool(val,b)) params[key] = b;
+                        else if (mapnik::util::string2int(val,i)) params[key] = i;
                         else if (mapnik::util::string2double(val,d)) params[key] = d;
                         else params[key] = val;
                     }
@@ -589,34 +588,17 @@ void map_parser::parse_layer(Map & map, xml_node const& node)
             lyr.set_active(* status);
         }
 
-        optional<double> minimum_scale_denom = node.get_opt_attr<double>("minimum-scale-denominator");
-        if (minimum_scale_denom)
+        optional<double> min_zoom = node.get_opt_attr<double>("minzoom");
+        if (min_zoom)
         {
-            lyr.set_minimum_scale_denominator(* minimum_scale_denom);
-        }
-        else // back compatibility: remove at Mapnik 4.x
-        {
-            optional<double> min_zoom = node.get_opt_attr<double>("minzoom");
-            if (min_zoom)
-            {
-                MAPNIK_LOG_ERROR(markers_symbolizer) << "'minzoom' is deprecated and will be removed in Mapnik 4.x, use 'minimum-scale-denominator' instead (encountered in layer " << name << ")";
-                lyr.set_minimum_scale_denominator(* min_zoom);
-            }
+            lyr.set_min_zoom(* min_zoom);
         }
 
-        optional<double> maximum_scale_denom = node.get_opt_attr<double>("maximum-scale-denominator");
-        if (maximum_scale_denom)
+
+        optional<double> max_zoom = node.get_opt_attr<double>("maxzoom");
+        if (max_zoom)
         {
-            lyr.set_maximum_scale_denominator(* maximum_scale_denom);
-        }
-        else // back compatibility: remove at Mapnik 4.x
-        {
-            optional<double> max_zoom = node.get_opt_attr<double>("maxzoom");
-            if (max_zoom)
-            {
-                MAPNIK_LOG_ERROR(markers_symbolizer) << "'maxzoom' is deprecated and will be removed in Mapnik 4.x, use 'maximum-scale-denominator' instead (encountered in layer " << name << ")";
-                lyr.set_maximum_scale_denominator(* max_zoom);
-            }
+            lyr.set_max_zoom(* max_zoom);
         }
 
         optional<mapnik::boolean_type> queryable = node.get_opt_attr<mapnik::boolean_type>("queryable");
@@ -646,7 +628,7 @@ void map_parser::parse_layer(Map & map, xml_node const& node)
             lyr.set_group_by(* group_by);
         }
 
-        optional<int> buffer_size = node.get_opt_attr<int>("buffer-size");
+        optional<unsigned> buffer_size = node.get_opt_attr<unsigned>("buffer-size");
         if (buffer_size)
         {
             lyr.set_buffer_size(*buffer_size);
@@ -1009,12 +991,13 @@ void map_parser::parse_markers_symbolizer(rule & rule, xml_node const& node)
         set_symbolizer_property<symbolizer_base,double>(sym, keys::height, node);
         set_symbolizer_property<symbolizer_base,boolean_type>(sym, keys::allow_overlap, node);
         set_symbolizer_property<symbolizer_base,boolean_type>(sym, keys::avoid_edges, node);
+        set_symbolizer_property<symbolizer_base,boolean_type>(sym, keys::adjust_edges, node);
+        set_symbolizer_property<symbolizer_base,boolean_type>(sym, keys::fit_marker, node);
         set_symbolizer_property<symbolizer_base,boolean_type>(sym, keys::ignore_placement, node);
         set_symbolizer_property<symbolizer_base,color>(sym, keys::fill, node);
         set_symbolizer_property<symbolizer_base,transform_type>(sym, keys::image_transform, node);
         set_symbolizer_property<symbolizer_base,marker_placement_enum>(sym, keys::markers_placement_type, node);
         set_symbolizer_property<symbolizer_base,marker_multi_policy_enum>(sym, keys::markers_multipolicy, node);
-        set_symbolizer_property<symbolizer_base,direction_enum>(sym, keys::direction, node);
         parse_stroke(sym,node);
         rule.append(std::move(sym));
     }
@@ -1120,20 +1103,17 @@ void map_parser::parse_text_symbolizer(rule & rule, xml_node const& node)
             placements = std::make_shared<text_placements_dummy>();
             placements->defaults.from_xml(node, fontsets_, false);
         }
-        if (placements)
+        if (strict_ && !placements->defaults.format_defaults.fontset)
         {
-            if (strict_ && !placements->defaults.format_defaults.fontset)
-            {
-                ensure_font_face(placements->defaults.format_defaults.face_name);
-            }
-            text_symbolizer sym;
-            parse_symbolizer_base(sym, node);
-            put<text_placements_ptr>(sym, keys::text_placements_, placements);
-            set_symbolizer_property<symbolizer_base,composite_mode_e>(sym, keys::halo_comp_op, node);
-            set_symbolizer_property<symbolizer_base,halo_rasterizer_enum>(sym, keys::halo_rasterizer, node);
-            set_symbolizer_property<symbolizer_base,transform_type>(sym, keys::halo_transform, node);
-            rule.append(std::move(sym));
+            ensure_font_face(placements->defaults.format_defaults.face_name);
         }
+        text_symbolizer sym;
+        parse_symbolizer_base(sym, node);
+        put<text_placements_ptr>(sym, keys::text_placements_, placements);
+        set_symbolizer_property<symbolizer_base,composite_mode_e>(sym, keys::halo_comp_op, node);
+        set_symbolizer_property<symbolizer_base,halo_rasterizer_enum>(sym, keys::halo_rasterizer, node);
+        set_symbolizer_property<symbolizer_base,transform_type>(sym, keys::halo_transform, node);
+        rule.append(std::move(sym));
     }
     catch (config_error const& ex)
     {
@@ -1167,6 +1147,7 @@ void map_parser::parse_shield_symbolizer(rule & rule, xml_node const& node)
         set_symbolizer_property<symbolizer_base,transform_type>(sym, keys::image_transform, node);
         set_symbolizer_property<symbolizer_base,double>(sym, keys::shield_dx, node);
         set_symbolizer_property<symbolizer_base,double>(sym, keys::shield_dy, node);
+        set_symbolizer_property<symbolizer_base,color>(sym, keys::shield_stroke, node);
         set_symbolizer_property<symbolizer_base,double>(sym, keys::opacity, node);
         set_symbolizer_property<symbolizer_base,mapnik::boolean_type>(sym, keys::unlock_image, node);
 
@@ -1293,10 +1274,10 @@ void map_parser::parse_raster_symbolizer(rule & rule, xml_node const & node)
         if (mode)
         {
             std::string mode_string = *mode;
-            if (mode_string.find('_') != std::string::npos)
+            if (boost::algorithm::find_first(mode_string,"_"))
             {
                 MAPNIK_LOG_ERROR(raster_symbolizer) << "'mode' values using \"_\" are deprecated and will be removed in Mapnik 3.x, use \"-\"instead";
-                std::replace(mode_string.begin(), mode_string.end(), '_', '-');
+                boost::algorithm::replace_all(mode_string,"_","-");
             }
             put(raster_sym, keys::mode, mode_string);
         }
@@ -1625,7 +1606,7 @@ void map_parser::ensure_exists(std::string const& file_path)
     if (marker_cache::instance().is_uri(file_path))
         return;
     // validate that the filename exists if it is not a dynamic PathExpression
-    if (file_path.find('[') == std::string::npos && file_path.find(']') == std::string::npos)
+    if (!boost::algorithm::find_first(file_path,"[") && !boost::algorithm::find_first(file_path,"]"))
     {
         if (!mapnik::util::exists(file_path))
         {
@@ -1660,14 +1641,12 @@ void map_parser::find_unused_nodes_recursive(xml_node const& node, std::string &
         {
             if (node.is_text())
             {
-                error_message += "\n* text '" + node.text();
+                error_message += "\n* text '" + node.text() + "'";
             }
             else
             {
-                error_message += "\n* node '" + node.name();
+                error_message += "\n* node '" + node.name() + "' at line " + node.line_to_string();
             }
-            error_message += "' at line " + node.line_to_string();
-
             return; //All attributes and children are automatically unprocessed, too.
         }
         xml_node::attribute_map const& attrs = node.get_attributes();
@@ -1683,21 +1662,6 @@ void map_parser::find_unused_nodes_recursive(xml_node const& node, std::string &
         for (auto const& child_node : node)
         {
             find_unused_nodes_recursive(child_node, error_message);
-        }
-    }
-}
-
-void map_parser::check_styles(Map const & map) const throw (config_error)
-{
-    for (auto const & layer : map.layers())
-    {
-        for (auto const & style : layer.styles())
-        {
-            if (!map.find_style(style))
-            {
-                throw config_error("Unable to process some data while parsing '" + filename_ +
-                    "': Style '" + style + "' required for layer '" + layer.name() + "'.");
-            }
         }
     }
 }

@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -39,13 +39,16 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wunused-local-typedef"
-#pragma GCC diagnostic ignored "-Wshadow"
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#pragma GCC diagnostic ignored "-Wconversion"
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/box.hpp>
 #include <boost/geometry/geometries/geometries.hpp>
 #include <boost/geometry.hpp>
 #include <boost/version.hpp>
+#if BOOST_VERSION >= 105600
 #include <boost/geometry/index/rtree.hpp>
+#else
+#include <boost/geometry/extensions/index/rtree/rtree.hpp>
+#endif
 #pragma GCC diagnostic pop
 
 // stl
@@ -58,10 +61,17 @@
 class topojson_datasource : public mapnik::datasource
 {
 public:
-    using box_type = mapnik::box2d<double>;
+    using point_type = boost::geometry::model::d2::point_xy<double>;
+    using box_type = boost::geometry::model::box<point_type>;
+
+#if BOOST_VERSION >= 105600
     using item_type = std::pair<box_type,std::size_t>;
     using linear_type = boost::geometry::index::linear<16,4>;
     using spatial_index_type = boost::geometry::index::rtree<item_type,linear_type>;
+#else
+    using item_type = std::size_t;
+    using spatial_index_type = boost::geometry::index::rtree<box_type,std::size_t>;
+#endif
 
     // constructor
     topojson_datasource(mapnik::parameters const& params);
@@ -72,7 +82,7 @@ public:
     mapnik::featureset_ptr features_at_point(mapnik::coord2d const& pt, double tol = 0) const;
     mapnik::box2d<double> envelope() const;
     mapnik::layer_descriptor get_descriptor() const;
-    boost::optional<mapnik::datasource_geometry_t> get_geometry_type() const;
+    boost::optional<mapnik::datasource::geometry_t> get_geometry_type() const;
     template <typename T>
     void parse_topojson(T const& buffer);
 private:

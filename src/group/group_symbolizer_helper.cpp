@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,9 +23,7 @@
 // mapnik
 #include <mapnik/group/group_symbolizer_helper.hpp>
 #include <mapnik/label_collision_detector.hpp>
-//#include <mapnik/geom_util.hpp>
-#include <mapnik/geometry.hpp>
-#include <mapnik/vertex_processor.hpp>
+#include <mapnik/geom_util.hpp>
 #include <mapnik/debug.hpp>
 #include <mapnik/symbolizer.hpp>
 #include <mapnik/value_types.hpp>
@@ -33,31 +31,12 @@
 #include <mapnik/text/placements/dummy.hpp>
 #include <mapnik/vertex_cache.hpp>
 #include <mapnik/tolerance_iterator.hpp>
+#include <mapnik/edge_placement_adjuster.h>
 
-namespace mapnik { namespace detail {
+//agg
+#include "agg_conv_clip_polyline.h"
 
-template <typename Helper>
-struct apply_find_line_placements : util::noncopyable
-{
-    apply_find_line_placements(view_transform const& t, proj_transform const& prj_trans, Helper & helper)
-        : t_(t),
-          prj_trans_(prj_trans),
-          helper_(helper) {}
-
-    template <typename Adapter>
-    void operator() (Adapter & va) const
-    {
-        using vertex_adapter_type = Adapter;
-        using path_type = transform_path_adapter<view_transform, vertex_adapter_type>;
-        path_type path(t_, va, prj_trans_);
-        helper_.find_line_placements(path);
-    }
-    view_transform const& t_;
-    proj_transform const& prj_trans_;
-    Helper & helper_;
-};
-
-} // ns detail
+namespace mapnik {
 
 group_symbolizer_helper::group_symbolizer_helper(
         group_symbolizer const& sym, feature_impl const& feature,
@@ -83,13 +62,13 @@ pixel_position_list const& group_symbolizer_helper::get()
     }
     else
     {
-        using apply_find_line_placements = detail::apply_find_line_placements<group_symbolizer_helper>;
         for (auto const& geom : geometries_to_process_)
         {
             // TODO to support clipped geometries this needs to use
             // vertex_converters
-            apply_find_line_placements apply(t_, prj_trans_, *this);
-            mapnik::util::apply_visitor(geometry::vertex_processor<apply_find_line_placements>(apply), geom);
+            using path_type = transform_path_adapter<view_transform,geometry_type>;
+            path_type path(t_, *geom, prj_trans_);
+            find_line_placements(path);
         }
     }
 
@@ -135,13 +114,36 @@ bool group_symbolizer_helper::find_line_placements(T & path)
 bool group_symbolizer_helper::check_point_placement(pixel_position const& pos)
 {
     if (box_elements_.empty()) return false;
-
+    double x = pos.x;
+    double y = pos.y;
     // offset boxes and check collision
     std::list< box2d<double> > real_boxes;
     for (auto const& box_elem : box_elements_)
     {
         box2d<double> real_box = box2d<double>(box_elem.box_);
         real_box.move(pos.x, pos.y);
+        edge_placement_adjuster adjuster;
+        if(text_props_->adjust_edges &&
+            adjuster.adjust_edge_placement(agg::trans_affine(), box_elem.box_, detector_.extent(), real_box, x, y) )
+        {
+            real_box = box2d<double>(box_elem.box_);
+            real_box.move(x, y);
+            if(collision(real_box, box_elem.repeat_key_))
+            {
+                //the box was moved but still not placed within bounds
+                //try to re-center the box and x, y
+                double dx = fabs(x - real_box.center().x);
+                double dy = fabs(y - real_box.center().y);
+                x = real_box.center().x;
+                y = real_box.center().y;
+                if(adjuster.adjust_edge_placement(agg::trans_affine(), box_elem.box_, detector_.extent(), real_box, x, y))
+                {
+                    real_box.re_center(x, y);
+                    x += dx;
+                    y += dy;
+                }
+            }
+        }
         if (collision(real_box, box_elem.repeat_key_))
         {
             return false;
@@ -158,9 +160,15 @@ bool group_symbolizer_helper::check_point_placement(pixel_position const& pos)
         elem_itr++;
         real_itr++;
     }
-
-    results_.push_back(pos);
-
+    if(pos.x != x || pos.y != y)
+    {
+        results_.push_back(pixel_position(x,y));
+    }
+    else
+    {
+        results_.push_back(pos);
+    }
+    
     return true;
 }
 

@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,20 +28,14 @@
 #include <mapnik/text/text_line.hpp>
 #include <mapnik/text/face.hpp>
 #include <mapnik/text/font_feature_settings.hpp>
-#include <mapnik/text/itemizer.hpp>
-#include <mapnik/safe_cast.hpp>
-#include <mapnik/font_engine_freetype.hpp>
 
 // stl
 #include <list>
 #include <type_traits>
 
 // harfbuzz
-#include <harfbuzz/hb.h>
-#include <harfbuzz/hb-ft.h>
-
-// icu
-#include <unicode/uscript.h>
+#include <hb.h>
+#include <hb-ft.h>
 
 namespace mapnik
 {
@@ -72,7 +66,7 @@ static void shape_text(text_line & line,
 {
     unsigned start = line.first_char();
     unsigned end = line.last_char();
-    std::size_t length = end - start;
+    size_t length = end - start;
     if (!length) return;
 
     std::list<text_item> const& list = itemizer.itemize(start, end);
@@ -81,7 +75,7 @@ static void shape_text(text_line & line,
 
     auto hb_buffer_deleter = [](hb_buffer_t * buffer) { hb_buffer_destroy(buffer);};
     const std::unique_ptr<hb_buffer_t, decltype(hb_buffer_deleter)> buffer(hb_buffer_create(),hb_buffer_deleter);
-    hb_buffer_pre_allocate(buffer.get(), safe_cast<int>(length));
+    hb_buffer_pre_allocate(buffer.get(), length);
     mapnik::value_unicode_string const& text = itemizer.text();
 
     for (auto const& text_item : list)
@@ -92,17 +86,17 @@ static void shape_text(text_line & line,
         std::size_t num_faces = face_set->size();
         std::size_t pos = 0;
         font_feature_settings const& ff_settings = text_item.format_->ff_settings;
-        int ff_count = safe_cast<int>(ff_settings.count());
         for (auto const& face : *face_set)
         {
             ++pos;
             hb_buffer_clear_contents(buffer.get());
-            hb_buffer_add_utf16(buffer.get(), uchar_to_utf16(text.getBuffer()), text.length(), text_item.start, static_cast<int>(text_item.end - text_item.start));
+            hb_buffer_add_utf16(buffer.get(), uchar_to_utf16(text.getBuffer()), text.length(), text_item.start, text_item.end - text_item.start);
             hb_buffer_set_direction(buffer.get(), (text_item.dir == UBIDI_RTL)?HB_DIRECTION_RTL:HB_DIRECTION_LTR);
             hb_buffer_set_script(buffer.get(), _icu_script_to_script(text_item.script));
-            hb_font_t *font(hb_ft_font_create(face->get_face(), nullptr));
-            hb_shape(font, buffer.get(), ff_settings.get_features(), ff_count);
-            hb_font_destroy(font);
+            //hb_font_t *font(hb_ft_font_create(face->get_face(), nullptr));
+            hb_font_t * font = font_manager.get_font_face_cache()->font_for_face(face, size);
+            hb_shape(font, buffer.get(), ff_settings.get_features(), ff_settings.count());
+            //hb_font_destroy(font);
 
             unsigned num_glyphs = hb_buffer_get_length(buffer.get());
 
@@ -128,7 +122,7 @@ static void shape_text(text_line & line,
             double max_glyph_height = 0;
             for (unsigned i=0; i<num_glyphs; ++i)
             {
-                auto const& gpos = positions[i];
+                auto const& pos = positions[i];
                 auto const& glyph = glyphs[i];
                 unsigned char_index = glyph.cluster;
                 glyph_info g(glyph.codepoint,char_index,text_item.format_);
@@ -137,8 +131,8 @@ static void shape_text(text_line & line,
                     g.face = face;
                     g.scale_multiplier = size / face->get_face()->units_per_EM;
                     //Overwrite default advance with better value provided by HarfBuzz
-                    g.unscaled_advance = gpos.x_advance;
-                    g.offset.set(gpos.x_offset * g.scale_multiplier, gpos.y_offset * g.scale_multiplier);
+                    g.unscaled_advance = pos.x_advance;
+                    g.offset.set(pos.x_offset * g.scale_multiplier, pos.y_offset * g.scale_multiplier);
                     double tmp_height = g.height();
                     if (tmp_height > max_glyph_height) max_glyph_height = tmp_height;
                     width_map[char_index] += g.advance();

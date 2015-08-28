@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,7 +19,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *****************************************************************************/
-
 #if defined(GRID_RENDERER)
 
 // mapnik
@@ -33,7 +32,6 @@
 #include <mapnik/text/placement_finder.hpp>
 #include <mapnik/text/symbolizer_helpers.hpp>
 #include <mapnik/text/renderer.hpp>
-#include <mapnik/text/glyph_positions.hpp>
 #include <mapnik/svg/svg_renderer_agg.hpp>
 #include <mapnik/svg/svg_storage.hpp>
 #include <mapnik/svg/svg_path_adapter.hpp>
@@ -130,15 +128,14 @@ struct thunk_renderer
         render_offset_placements(
             thunk.placements_,
             offset_,
-            [&] (glyph_positions_ptr const& glyphs)
+            [&] (glyph_positions_ptr glyphs)
             {
-                marker_info_ptr mark = glyphs->get_marker();
-                if (mark)
+                if (glyphs->marker())
                 {
                     ren_.render_marker(feature_,
                                        glyphs->marker_pos(),
-                                       *mark->marker_,
-                                       mark->transform_,
+                                       *(glyphs->marker()->marker),
+                                       glyphs->marker()->transform,
                                        thunk.opacity_, thunk.comp_op_);
                 }
                 ren.render(*glyphs, feature_id);
@@ -183,5 +180,4 @@ template void grid_renderer<grid>::process(group_symbolizer const&,
                                            proj_transform const&);
 
 }
-
 #endif

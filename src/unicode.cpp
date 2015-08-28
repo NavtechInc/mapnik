@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -39,7 +39,7 @@ transcoder::transcoder (std::string const& encoding)
     conv_ = ucnv_open(encoding.c_str(),&err);
     if (!U_SUCCESS(err))
     {
-        // NOTE: conv_ should be null on error so no need to call ucnv_close
+        // NOT: conv_ should be null on error so no need to call ucnv_close
         throw std::runtime_error(std::string("could not create converter for ") + encoding);
     }
 }

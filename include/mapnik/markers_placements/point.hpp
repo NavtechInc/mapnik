@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,18 +23,11 @@
 #ifndef MAPNIK_MARKERS_PLACEMENTS_POINT_HPP
 #define MAPNIK_MARKERS_PLACEMENTS_POINT_HPP
 
-#include <mapnik/box2d.hpp>
 #include <mapnik/geom_util.hpp>
-#include <mapnik/geometry_types.hpp>
-#include <mapnik/util/math.hpp>
-#include <mapnik/label_collision_detector.hpp>
-#include <mapnik/symbolizer_enumerations.hpp>
-#include <mapnik/util/noncopyable.hpp>
+#include <mapnik/edge_placement_adjuster.h>
 
 #include "agg_basics.h"
 #include "agg_trans_affine.h"
-
-#include <cmath>
 
 namespace mapnik {
 
@@ -46,7 +39,8 @@ struct markers_placement_params
     double max_error;
     bool allow_overlap;
     bool avoid_edges;
-    direction_enum direction;
+    bool adjust_edges;
+    bool fit_marker;
 };
 
 template <typename Locator, typename Detector>
@@ -85,7 +79,7 @@ public:
             return false;
         }
 
-        if (locator_.type() == geometry::geometry_types::LineString)
+        if (locator_.type() == mapnik::geometry_type::types::LineString)
         {
             if (!label::middle_point(locator_, x, y))
             {
@@ -105,6 +99,15 @@ public:
         angle = 0;
         box2d<double> box = perform_transform(angle, x, y);
 
+        if (params_.adjust_edges)
+        {
+            edge_placement_adjuster adjuster;
+            if( adjuster.adjust_edge_placement(params_.tr, params_.size, detector_.extent(), box, x, y) )
+            {
+                //WI: re-compute the box based on the new x, y values
+                box = perform_transform(angle, x, y);
+            }
+        }
         if (params_.avoid_edges && !detector_.extent().contains(box))
         {
             return false;
@@ -149,36 +152,6 @@ protected:
         result.expand_to_include(xB, yB);
         result.expand_to_include(xD, yD);
         return result;
-    }
-
-    bool set_direction(double & angle)
-    {
-        switch (params_.direction)
-        {
-            case DIRECTION_UP:
-                angle = .0;
-                return true;
-            case DIRECTION_DOWN:
-                angle = M_PI;
-                return true;
-            case DIRECTION_AUTO:
-                angle = (std::fabs(util::normalize_angle(angle)) > 0.5 * M_PI) ? (angle + M_PI) : angle;
-                return true;
-            case DIRECTION_AUTO_DOWN:
-                angle = (std::fabs(util::normalize_angle(angle)) < 0.5 * M_PI) ? (angle + M_PI) : angle;
-                return true;
-            case DIRECTION_LEFT:
-                angle += M_PI;
-                return true;
-            case DIRECTION_LEFT_ONLY:
-                angle += M_PI;
-                return std::fabs(util::normalize_angle(angle)) < 0.5 * M_PI;
-            case DIRECTION_RIGHT_ONLY:
-                return std::fabs(util::normalize_angle(angle)) < 0.5 * M_PI;
-            case DIRECTION_RIGHT:
-            default:
-                return true;
-        }
     }
 };
 

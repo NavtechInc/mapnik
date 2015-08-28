@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,8 +26,6 @@
 // mapnik
 #include <mapnik/util/noncopyable.hpp>
 #include <mapnik/box2d.hpp>
-#include <mapnik/safe_cast.hpp>
-
 // agg
 #include "agg_math.h"
 #include "agg_array.h"
@@ -45,7 +43,7 @@ using namespace agg;
 template<class VertexContainer> class path_adapter : util::noncopyable
 {
 public:
-    using container_type = VertexContainer;
+    using container_type = VertexContainer           ;
     using self_type = path_adapter<VertexContainer>;
 
     //--------------------------------------------------------------------
@@ -55,7 +53,7 @@ public:
 
     // Make path functions
     //--------------------------------------------------------------------
-    std::size_t start_new_path();
+    unsigned start_new_path();
 
     void move_to(double x, double y);
     void move_rel(double dx, double dy);
@@ -114,7 +112,7 @@ public:
     const container_type& vertices() const { return vertices_; }
     container_type& vertices()       { return vertices_; }
 
-    std::size_t total_vertices() const;
+    unsigned total_vertices() const;
 
     void rel_to_abs(double* x, double* y) const;
 
@@ -265,7 +263,7 @@ private:
 
 //------------------------------------------------------------------------
 template<class VC>
-std::size_t path_adapter<VC>::start_new_path()
+unsigned path_adapter<VC>::start_new_path()
 {
     if(!is_stop(vertices_.last_command()))
     {
@@ -549,7 +547,7 @@ inline void path_adapter<VC>::close_polygon(unsigned flags)
 
 //------------------------------------------------------------------------
 template<class VC>
-inline std::size_t path_adapter<VC>::total_vertices() const
+inline unsigned path_adapter<VC>::total_vertices() const
 {
     return vertices_.total_vertices();
 }
@@ -888,7 +886,7 @@ public:
     {
         return vertices_.size() ?
             vertices_[vertices_.size() - 1].cmd :
-            path_cmd_stop;
+            (unsigned)path_cmd_stop;
     }
 
     unsigned last_vertex(double* x, double* y) const
@@ -898,7 +896,7 @@ public:
             *x = *y = 0.0;
             return path_cmd_stop;
         }
-        return vertex(safe_cast<unsigned>(vertices_.size() - 1), x, y);
+        return vertex(vertices_.size() - 1, x, y);
     }
 
     unsigned prev_vertex(double* x, double* y) const
@@ -908,7 +906,7 @@ public:
             *x = *y = 0.0;
             return path_cmd_stop;
         }
-        return vertex(safe_cast<unsigned>(vertices_.size() - 2), x, y);
+        return vertex(vertices_.size() - 2, x, y);
     }
 
     double last_x() const

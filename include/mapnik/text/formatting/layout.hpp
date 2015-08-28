@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -52,6 +52,7 @@ public:
     boost::optional<symbolizer_base::value_type> repeat_wrap_char;
     boost::optional<symbolizer_base::value_type> rotate_displacement;
     boost::optional<symbolizer_base::value_type> orientation;
+    boost::optional<symbolizer_base::value_type> shield_layout;
 
 private:
     node_ptr child_;

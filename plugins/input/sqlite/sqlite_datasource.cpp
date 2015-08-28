@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,7 +34,6 @@
 #include <mapnik/wkb.hpp>
 #include <mapnik/util/trim.hpp>
 #include <mapnik/util/fs.hpp>
-#include <mapnik/geometry_is_empty.hpp>
 
 // boost
 #include <boost/algorithm/string.hpp>
@@ -418,16 +417,16 @@ box2d<double> sqlite_datasource::envelope() const
     return extent_;
 }
 
-boost::optional<mapnik::datasource_geometry_t> sqlite_datasource::get_geometry_type() const
+boost::optional<mapnik::datasource::geometry_t> sqlite_datasource::get_geometry_type() const
 {
 #ifdef MAPNIK_STATS
     mapnik::progress_timer __stats__(std::clog, "sqlite_datasource::get_geometry_type");
 #endif
 
-    boost::optional<mapnik::datasource_geometry_t> result;
+    boost::optional<mapnik::datasource::geometry_t> result;
     if (dataset_)
     {
-        // get geometry type by querying first features
+        // finally, get geometry type by querying first feature
         std::ostringstream s;
         s << "SELECT " << geometry_field_
           << " FROM " << geometry_table_;
@@ -447,22 +446,20 @@ boost::optional<mapnik::datasource_geometry_t> sqlite_datasource::get_geometry_t
             const char* data = (const char*) rs->column_blob(0, size);
             if (data)
             {
-
-                mapnik::geometry::geometry<double> geom = mapnik::geometry_utils::from_wkb(data, size, format_);
-                if (mapnik::geometry::is_empty(geom))
+                mapnik::geometry_container paths;
+                if (mapnik::geometry_utils::from_wkb(paths, data, size, format_))
                 {
-                    continue;
-                }
-                result = mapnik::util::to_ds_type(geom);
-                if (result)
-                {
-                    int type = static_cast<int>(*result);
-                    if (multi_type > 0 && multi_type != type)
+                    mapnik::util::to_ds_type(paths,result);
+                    if (result)
                     {
-                        result.reset(mapnik::datasource_geometry_t::Collection);
-                        return result;
+                        int type = static_cast<int>(*result);
+                        if (multi_type > 0 && multi_type != type)
+                        {
+                            result.reset(mapnik::datasource::Collection);
+                            return result;
+                        }
+                        multi_type = type;
                     }
-                    multi_type = type;
                 }
             }
         }

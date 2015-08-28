@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,7 +22,6 @@
 
 // mapnik
 #include <mapnik/marker_helpers.hpp>
-#include <mapnik/svg/svg_converter.hpp>
 
 #include "agg_ellipse.h"
 #include "agg_color_rgba.h"
@@ -69,6 +68,10 @@ bool push_explicit_style(svg_attribute_type const& src,
     auto fill_color = get_optional<color>(sym, keys::fill, feature, vars);
     auto fill_opacity = get_optional<double>(sym, keys::fill_opacity, feature, vars);
     auto stroke_color = get_optional<color>(sym, keys::stroke, feature, vars);
+    if(!stroke_color)
+    {
+        stroke_color = get_optional<color>(sym, keys::shield_stroke, feature, vars);
+    }
     auto stroke_width = get_optional<double>(sym, keys::stroke_width, feature, vars);
     auto stroke_opacity = get_optional<double>(sym, keys::stroke_opacity, feature, vars);
     if (fill_color ||

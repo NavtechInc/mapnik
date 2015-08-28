@@ -17,21 +17,21 @@
 #ifndef __SCRPTRUN_H
 #define __SCRPTRUN_H
 
-#include <unicode/utypes.h>
-#include <unicode/uobject.h>
-#include <unicode/uscript.h>
+#include "unicode/utypes.h"
+#include "unicode/uobject.h"
+#include "unicode/uscript.h"
 
 struct ScriptRecord
 {
-    UChar32 startChar = 0;
-    UChar32 endChar = 0;
-    UScriptCode scriptCode = USCRIPT_INVALID_CODE;
+    UChar32 startChar;
+    UChar32 endChar;
+    UScriptCode scriptCode;
 };
 
 struct ParenStackEntry
 {
-    int32_t pairIndex = 0;
-    UScriptCode scriptCode = USCRIPT_INVALID_CODE;
+    int32_t pairIndex;
+    UScriptCode scriptCode;
 };
 
 class ScriptRun : public UObject {

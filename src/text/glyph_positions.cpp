@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,8 +34,9 @@ namespace mapnik
 glyph_positions::glyph_positions()
     : data_(),
       base_point_(),
-      marker_info_(),
+      marker_(),
       marker_pos_(),
+      marker_placement_tr_(),  //WI: Added John's changes for marker rotation 13NOV2014 (identity transform)
       bbox_() {}
 
 glyph_positions::const_iterator glyph_positions::begin() const
@@ -68,15 +69,25 @@ void glyph_positions::set_base_point(pixel_position const& base_point)
     base_point_ = base_point;
 }
 
-void glyph_positions::set_marker(marker_info_ptr mark, pixel_position const& marker_pos)
-{
-    marker_info_ = mark;
+void glyph_positions::set_marker(marker_info_ptr marker, pixel_position const& marker_pos, box2d<double> const& marker_bbox,agg::trans_affine const& marker_placement_tr)
+    {
+    marker_ = marker;
     marker_pos_ = marker_pos;
+        
+    // GG (Feb 2015), recalculate the bounding box
+    box2d<double>  bboxShield = marker_bbox;
+    coord<double,2> c = bboxShield.center();
+    bboxShield.re_center(0,0);
+    bboxShield*=marker_placement_tr;//apply any special placement transform
+    bboxShield.re_center(c);
+    marker_bbox_ = bboxShield;
+    //WI: Added John's changes for marker rotation 13NOV2014 (transform in general)
+    marker_placement_tr_ *= marker_placement_tr;
 }
 
-marker_info_ptr glyph_positions::get_marker() const
+marker_info_ptr glyph_positions::marker() const
 {
-    return marker_info_;
+    return marker_;
 }
 
 pixel_position const& glyph_positions::marker_pos() const
@@ -84,4 +95,8 @@ pixel_position const& glyph_positions::marker_pos() const
     return marker_pos_;
 }
 
+box2d<double> const & glyph_positions::marker_bbox() const
+{
+    return marker_bbox_;
+}
 }// ns mapnik

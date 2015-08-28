@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,10 +25,7 @@
 #include <mapnik/image_filter_grammar.hpp>
 
 // spirit
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-conversion"
 #include <boost/spirit/include/phoenix.hpp>
-#pragma GCC diagnostic pop
 
 namespace mapnik {
 
@@ -79,12 +76,6 @@ image_filter_grammar<Iterator,ContType>::image_filter_grammar()
         lit("y-gradient") >> no_args [push_back(_val,construct<mapnik::filter::y_gradient>())]
         |
         lit("invert") >> no_args [push_back(_val,construct<mapnik::filter::invert>())]
-        |
-        lit("color-blind-protanope") >> no_args [push_back(_val,construct<mapnik::filter::color_blind_protanope>())]
-        |
-        lit("color-blind-deuteranope") >> no_args [push_back(_val,construct<mapnik::filter::color_blind_deuteranope>())]
-        |
-        lit("color-blind-tritanope") >> no_args [push_back(_val,construct<mapnik::filter::color_blind_tritanope>())]
         |
         agg_blur_filter(_val)
         |

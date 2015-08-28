@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,16 +30,13 @@
 
 #define USE_DENSE_HASH_MAP
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-conversion"
 #ifdef USE_DENSE_HASH_MAP
-#include <mapnik/sparsehash/dense_hash_map>
-using rgba_hash_table = google::dense_hash_map<unsigned int, unsigned char>;
+    #include <mapnik/sparsehash/dense_hash_map>
+    using rgba_hash_table = google::dense_hash_map<unsigned int, unsigned char>;
 #else
-#include <unordered_map>
-using rgba_hash_table = std::unordered_map<unsigned int, unsigned char>;
+    #include <boost/unordered_map.hpp>
+    using rgba_hash_table = boost::unordered_map<unsigned int, unsigned char>;
 #endif
-#pragma GCC diagnostic pop
 
 // stl
 #include <vector>
@@ -54,11 +51,11 @@ namespace mapnik {
 struct rgba;
 
 struct MAPNIK_DECL rgb {
-    std::uint8_t r;
-    std::uint8_t g;
-    std::uint8_t b;
+    byte r;
+    byte g;
+    byte b;
 
-    inline rgb(std::uint8_t r_, std::uint8_t g_, std::uint8_t b_) : r(r_), g(g_), b(b_) {}
+    inline rgb(byte r_, byte g_, byte b_) : r(r_), g(g_), b(b_) {}
     rgb(rgba const& c);
 
     inline bool operator==(const rgb& y) const
@@ -69,12 +66,12 @@ struct MAPNIK_DECL rgb {
 
 struct MAPNIK_DECL rgba
 {
-    std::uint8_t r;
-    std::uint8_t g;
-    std::uint8_t b;
-    std::uint8_t a;
+    byte r;
+    byte g;
+    byte b;
+    byte a;
 
-    inline rgba(std::uint8_t r_, std::uint8_t g_, std::uint8_t b_, std::uint8_t a_)
+    inline rgba(byte r_, byte g_, byte b_, byte a_)
         : r(r_),
           g(g_),
           b(b_),

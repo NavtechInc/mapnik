@@ -34,8 +34,7 @@ struct weighted_vertex : private util::noncopyable
 
     double nominalWeight()
     {
-        if (prev == nullptr || next == nullptr || coord.cmd != SEG_LINETO)
-        {
+        if (prev == nullptr || next == nullptr || coord.cmd != SEG_LINETO) {
             return std::numeric_limits<double>::infinity();
         }
         vertex2d const& A = prev->coord;
@@ -90,10 +89,10 @@ struct sleeve
 };
 
 template <typename Geometry>
-struct simplify_converter
+struct MAPNIK_DECL simplify_converter
 {
 public:
-    simplify_converter(Geometry & geom)
+    simplify_converter(Geometry& geom)
         : geom_(geom),
         tolerance_(0.0),
         status_(initial),
@@ -136,8 +135,7 @@ public:
 
     void set_simplify_tolerance(double value)
     {
-        if (tolerance_ != value)
-        {
+        if (tolerance_ != value) {
             tolerance_ = value;
             reset();
         }
@@ -186,30 +184,22 @@ private:
         return SEG_END;
     }
 
-    unsigned output_vertex_cached(double* x, double* y)
-    {
+    unsigned output_vertex_cached(double* x, double* y) {
         if (pos_ >= vertices_.size())
             return SEG_END;
 
         previous_vertex_ = vertices_[pos_];
-        if (previous_vertex_.cmd == SEG_CLOSE)
-        {
-            *x = *y = 0.0; // restore SEG_CLOSE command
-        }
-        else
-        {
-            *x = previous_vertex_.x;
-            *y = previous_vertex_.y;
-        }
+        *x = previous_vertex_.x;
+        *y = previous_vertex_.y;
         pos_++;
         return previous_vertex_.cmd;
     }
 
-    unsigned output_vertex_distance(double* x, double* y)
-    {
-        if (status_ == closing)
-        {
-            *x = *y = 0.0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+    unsigned output_vertex_distance(double* x, double* y) {
+        if (status_ == closing) {
             status_ = end;
             return SEG_CLOSE;
         }
@@ -218,45 +208,30 @@ private:
         vertex2d vtx(vertex2d::no_init);
         while ((vtx.cmd = geom_.vertex(&vtx.x, &vtx.y)) != SEG_END)
         {
-            if (vtx.cmd == SEG_LINETO)
-            {
-                if (distance_to_previous(vtx) > tolerance_)
-                {
+            if (vtx.cmd == SEG_LINETO) {
+                if (distance_to_previous(vtx) > tolerance_) {
                     // Only output a vertex if it's far enough away from the previous
                     break;
-                }
-                else
-                {
+                } else {
                     last = vtx;
                     // continue
                 }
-            }
-            else if (vtx.cmd == SEG_CLOSE)
-            {
-                if (last.cmd == SEG_END)
-                {
+            } else if (vtx.cmd == SEG_CLOSE) {
+                if (last.cmd == SEG_END) {
                     // The previous vertex was already output in the previous call.
                     // We can now safely output SEG_CLOSE.
                     status_ = end;
-                }
-                else
-                {
+                } else {
                     // We eliminated the previous point because it was too close, but
                     // we have to output it now anyway, since this is the end of the
                     // vertex stream. Make sure that we output SEG_CLOSE in the next call.
-                    vtx.x = start_vertex_.x;
-                    vtx.y = start_vertex_.y;
+                    vtx = last;
                     status_ = closing;
                 }
                 break;
-            }
-            else if (vtx.cmd == SEG_MOVETO)
-            {
-                start_vertex_ = vtx;
+            } else if (vtx.cmd == SEG_MOVETO) {
                 break;
-            }
-            else
-            {
+            } else {
                 throw std::runtime_error("Unknown vertex command");
             }
         }
@@ -266,6 +241,7 @@ private:
         *y = vtx.y;
         return vtx.cmd;
     }
+#pragma GCC diagnostic pop
 
     template <typename Iterator>
     bool fit_sleeve(Iterator itr,Iterator end, vertex2d const& v)
@@ -296,6 +272,8 @@ private:
                 vertices_.size() >= min_size)
                 status_ = process;
 
+            previous_vertex_ = vtx;
+
             if (vtx.cmd == SEG_MOVETO)
             {
                 if (sleeve_cont_.size() > 1)
@@ -305,7 +283,6 @@ private:
                 }
                 vertices_.push_back(vtx);
                 sleeve_cont_.push_back(vtx);
-                start_vertex_ = vtx;
                 if (status_ == process) break;
             }
             else if (vtx.cmd == SEG_LINETO)
@@ -332,8 +309,6 @@ private:
                     vertices_.push_back(sleeve_cont_.back());
                     sleeve_cont_.clear();
                 }
-                vtx.x = start_vertex_.x;
-                vtx.y = start_vertex_.y;
                 vertices_.push_back(vtx);
                 if (status_ == process) break;
             }
@@ -360,22 +335,14 @@ private:
         {
             vertex2d v = vertices_.front();
             vertices_.pop_front();
-            if (v.cmd == SEG_CLOSE)
-            {
-                *x = *y = 0.0; // restore SEG_CLOSE command
-            }
-            else
-            {
-                *x = v.x;
-                *y = v.y;
-            }
+            *x = v.x;
+            *y = v.y;
             return v.cmd;
         }
         return SEG_END;
     }
 
-    double distance_to_previous(vertex2d const& vtx)
-    {
+    double distance_to_previous(vertex2d const& vtx) {
         double dx = previous_vertex_.x - vtx.x;
         double dy = previous_vertex_.y - vtx.y;
         return dx * dx + dy * dy;
@@ -413,20 +380,10 @@ private:
         vertex2d vtx(vertex2d::no_init);
         while ((vtx.cmd = geom_.vertex(&vtx.x, &vtx.y)) != SEG_END)
         {
-            if (vtx.cmd == SEG_MOVETO)
-            {
-                start_vertex_ = vtx;
-            }
-            else if (vtx.cmd == SEG_CLOSE)
-            {
-                vtx.x = start_vertex_.x;
-                vtx.y = start_vertex_.y;
-            }
             v_list.push_back(new weighted_vertex(vtx));
         }
 
-        if (v_list.empty())
-        {
+        if (v_list.empty()) {
             return status_ = process;
         }
 
@@ -445,8 +402,7 @@ private:
         {
             VertexSet::iterator lowest = v.begin();
             weighted_vertex *removed = *lowest;
-            if (removed->weight >= tolerance_)
-            {
+            if (removed->weight >= tolerance_) {
                 break;
             }
 
@@ -456,14 +412,12 @@ private:
             if (removed->prev) removed->prev->next = removed->next;
             if (removed->next) removed->next->prev = removed->prev;
             // Adjust weight and reinsert prev/next to move them to their correct position.
-            if (removed->prev)
-            {
+            if (removed->prev) {
                 v.erase(removed->prev);
                 removed->prev->weight = std::max(removed->weight, removed->prev->nominalWeight());
                 v.insert(removed->prev);
             }
-            if (removed->next)
-            {
+            if (removed->next) {
                 v.erase(removed->next);
                 removed->next->weight = std::max(removed->weight, removed->next->nominalWeight());
                 v.insert(removed->next);
@@ -573,15 +527,6 @@ private:
         vertex2d vtx(vertex2d::no_init);
         while ((vtx.cmd = geom_.vertex(&vtx.x, &vtx.y)) != SEG_END)
         {
-            if (vtx.cmd == SEG_MOVETO)
-            {
-                start_vertex_ = vtx;
-            }
-            else if (vtx.cmd == SEG_CLOSE)
-            {
-                vtx.x = start_vertex_.x;
-                vtx.y = start_vertex_.y;
-            }
             vertices.push_back(vtx);
         }
 
@@ -592,7 +537,7 @@ private:
         }
 
         // Slurp the points back out that haven't been marked as discarded
-        for (vertex2d const& vertex : vertices)
+        for (vertex2d& vertex : vertices)
         {
             if (vertex.cmd != SEG_END)
             {
@@ -603,14 +548,13 @@ private:
         return status_ = process;
     }
 
-    Geometry &                      geom_;
+    Geometry&                       geom_;
     double                          tolerance_;
     status                          status_;
     simplify_algorithm_e            algorithm_;
     std::deque<vertex2d>            vertices_;
     std::deque<vertex2d>            sleeve_cont_;
     vertex2d                        previous_vertex_;
-    vertex2d                        start_vertex_;
     mutable size_t                  pos_;
 };
 

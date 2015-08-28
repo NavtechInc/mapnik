@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -32,11 +32,13 @@
 #include <mapnik/debug.hpp>
 #include <mapnik/view_transform.hpp>
 #include <mapnik/raster.hpp>
-#include <mapnik/image.hpp>
+#include <mapnik/image_data.hpp>
 #include <mapnik/util/conversions.hpp>
 #include <mapnik/util/trim.hpp>
 #include <mapnik/box2d.hpp> // for box2d
-#include <functional>
+
+// boost
+#include <boost/bind.hpp>
 
 #include <cstdint>
 
@@ -181,8 +183,13 @@ mapnik::raster_ptr read_data_band(mapnik::box2d<double> const& bbox,
                     uint16_t width, uint16_t height,
                     bool hasnodata, T reader)
 {
-  mapnik::image_gray32f image(width, height);
-  float* data = image.data();
+  mapnik::image_data_gray32f image(width, height);
+  //image.set(std::numeric_limits<float>::max());
+  // Start with plain white (ABGR or RGBA depending on endiannes)
+  // TODO: set to transparent instead?
+  image.set(0xffffffff);
+
+  float* data = image.getData();
   double val;
   val = reader(); // nodata value, need to read anyway
   for (int y=0; y<height; ++y) {
@@ -192,7 +199,7 @@ mapnik::raster_ptr read_data_band(mapnik::box2d<double> const& bbox,
       data[off] = val;
     }
   }
-  mapnik::raster_ptr raster = std::make_shared<mapnik::raster>(bbox, image, 1.0);
+  mapnik::raster_ptr raster = std::make_shared<mapnik::raster>(bbox, image, 1.0, true);
   if ( hasnodata ) raster->set_nodata(val);
   return raster;
 }
@@ -227,27 +234,27 @@ mapnik::raster_ptr pgraster_wkb_reader::read_indexed(mapnik::box2d<double> const
       // mapnik does not support signed anyway
     case PT_8BUI:
       return read_data_band(bbox, width_, height_, hasnodata,
-                     std::bind(read_uint8, &ptr_));
+                     boost::bind(read_uint8, &ptr_));
       break;
     case PT_16BSI:
       // mapnik does not support signed anyway
     case PT_16BUI:
       return read_data_band(bbox, width_, height_, hasnodata,
-                     std::bind(read_uint16, &ptr_, endian_));
+                     boost::bind(read_uint16, &ptr_, endian_));
       break;
     case PT_32BSI:
       // mapnik does not support signed anyway
     case PT_32BUI:
       return read_data_band(bbox, width_, height_, hasnodata,
-                     std::bind(read_uint32, &ptr_, endian_));
+                     boost::bind(read_uint32, &ptr_, endian_));
       break;
     case PT_32BF:
       return read_data_band(bbox, width_, height_, hasnodata,
-                     std::bind(read_float32, &ptr_, endian_));
+                     boost::bind(read_float32, &ptr_, endian_));
       break;
     case PT_64BF:
       return read_data_band(bbox, width_, height_, hasnodata,
-                     std::bind(read_float64, &ptr_, endian_));
+                     boost::bind(read_float64, &ptr_, endian_));
       break;
     default:
       std::ostringstream err;
@@ -264,40 +271,28 @@ mapnik::raster_ptr read_grayscale_band(mapnik::box2d<double> const& bbox,
                          uint16_t width, uint16_t height,
                          bool hasnodata, T reader)
 {
-  mapnik::image_rgba8 image(width,height, true, true);
+  mapnik::image_data_rgba8 image(width,height);
   // Start with plain white (ABGR or RGBA depending on endiannes)
   // TODO: set to transparent instead?
   image.set(0xffffffff);
 
 
   int val;
-  int nodataval;
-  uint8_t * data = image.bytes();
-  int ps = 4; // sizeof(image::pixel_type)
+  uint8_t * data = image.getBytes();
+  int ps = 4; // sizeof(image_data::pixel_type)
   int off;
-  nodataval = reader(); // nodata value, need to read anyway
+  val = reader(); // nodata value, need to read anyway
   for (int y=0; y<height; ++y) {
     for (int x=0; x<width; ++x) {
       val = reader();
-      // Apply harsh type clipping rules ala GDAL
-      if ( val < 0 ) val = 0;
-      if ( val > 255 ) val = 255;
-      // Calculate pixel offset
       off = y * width * ps + x * ps;
-      // Pixel space is RGBA, fill all w/ same value for Grey
+      // Pixel space is RGBA
       data[off+0] = val;
       data[off+1] = val;
       data[off+2] = val;
-      // Set the alpha channel for transparent nodata values
-      // Nodata handling is *manual* at the driver level
-      if ( hasnodata && val == nodataval ) {
-          data[off+3] = 0x00; // transparent
-      } else {
-          data[off+3] = 0xFF; // opaque
-      }
     }
   }
-  mapnik::raster_ptr raster = std::make_shared<mapnik::raster>(bbox, image, 1.0);
+  mapnik::raster_ptr raster = std::make_shared<mapnik::raster>(bbox, image, 1.0, true);
   if ( hasnodata ) raster->set_nodata(val);
   return raster;
 }
@@ -330,19 +325,19 @@ mapnik::raster_ptr pgraster_wkb_reader::read_grayscale(mapnik::box2d<double> con
       // mapnik does not support signed anyway
     case PT_8BUI:
       return read_grayscale_band(bbox, width_, height_, hasnodata,
-                          std::bind(read_uint8, &ptr_));
+                          boost::bind(read_uint8, &ptr_));
       break;
     case PT_16BSI:
       // mapnik does not support signed anyway
     case PT_16BUI:
       return read_grayscale_band(bbox, width_, height_, hasnodata,
-                          std::bind(read_uint16, &ptr_, endian_));
+                          boost::bind(read_uint16, &ptr_, endian_));
       break;
     case PT_32BSI:
       // mapnik does not support signed anyway
     case PT_32BUI:
       return read_grayscale_band(bbox, width_, height_, hasnodata,
-                          std::bind(read_uint32, &ptr_, endian_));
+                          boost::bind(read_uint32, &ptr_, endian_));
       break;
     default:
       std::ostringstream err;
@@ -357,9 +352,9 @@ mapnik::raster_ptr pgraster_wkb_reader::read_grayscale(mapnik::box2d<double> con
 mapnik::raster_ptr pgraster_wkb_reader::read_rgba(mapnik::box2d<double> const& bbox,
                                                   uint16_t width, uint16_t height)
 {
-  mapnik::image_rgba8 im(width, height, true, true);
+  mapnik::image_data_rgba8 image(width, height);
   // Start with plain white (ABGR or RGBA depending on endiannes)
-  im.set(0xffffffff);
+  image.set(0xffffffff);
 
   uint8_t nodataval;
   for (int bn=0; bn<numBands_; ++bn) {
@@ -392,8 +387,8 @@ mapnik::raster_ptr pgraster_wkb_reader::read_rgba(mapnik::box2d<double> const& b
             << " nodataval " << tmp << " != band 0 nodataval " << nodataval;
     }
 
-    int ps = 4; // sizeof(image::pixel_type)
-    uint8_t * image_data = im.bytes();
+    int ps = 4; // sizeof(image_data::pixel_type)
+    uint8_t * image_data = image.getBytes();
     for (int y=0; y<height_; ++y) {
       for (int x=0; x<width_; ++x) {
         uint8_t val = read_uint8(&ptr_);
@@ -405,7 +400,7 @@ mapnik::raster_ptr pgraster_wkb_reader::read_rgba(mapnik::box2d<double> const& b
       }
     }
   }
-  mapnik::raster_ptr raster = std::make_shared<mapnik::raster>(bbox, im, 1.0);
+  mapnik::raster_ptr raster = std::make_shared<mapnik::raster>(bbox, image, 1.0, true);
   raster->set_nodata(0xffffffff);
   return raster;
 }

@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -49,6 +49,7 @@ public:
         : text_placement_info(parent, scale_factor),
         state(0) {}
     bool next() const;
+    virtual void reset_state() { state = 0; }
 private:
     mutable unsigned state;
 };

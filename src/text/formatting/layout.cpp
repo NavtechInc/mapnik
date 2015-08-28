@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -58,7 +58,8 @@ void layout_node::to_xml(ptree &xml) const
     if (halign) serialize_property("horizontal-alignment", *halign, new_node);
     if (valign) serialize_property("vertical-alignment", *valign, new_node);
     if (jalign) serialize_property("justify-alignment", *jalign, new_node);
-
+    if (shield_layout) serialize_property("shield-layout", *shield_layout, new_node);
+    
     if (child_) child_->to_xml(new_node);
 }
 
@@ -80,6 +81,7 @@ node_ptr layout_node::from_xml(xml_node const& xml, fontset_map const& fontsets)
     if (xml.has_attribute("horizontal-alignment")) set_property_from_xml<horizontal_alignment_e>(n->halign, "horizontal-alignment", xml);
     if (xml.has_attribute("vertical-alignment")) set_property_from_xml<vertical_alignment_e>(n->valign, "vertical-alignment", xml);
     if (xml.has_attribute("justify-alignment")) set_property_from_xml<justify_alignment_e>(n->jalign, "justify-alignment", xml);
+    if (xml.has_attribute("shield-layout")) set_property_from_xml<mapnik::boolean_type>(n->shield_layout, "shield-layout", xml);
     return n;
 }
 
@@ -98,7 +100,7 @@ void layout_node::apply(evaluated_format_properties_ptr const& p, feature_impl c
     if (halign) new_properties.halign = *halign;
     if (valign) new_properties.valign = *valign;
     if (jalign) new_properties.jalign = *jalign;
-
+    if (shield_layout) new_properties.shield_layout = *shield_layout;
     // starting a new offset child with the new displacement value
     // we pass a null format tree since this is not the parent but a child
     text_layout_ptr child_layout = std::make_shared<text_layout>(parent.get_font_manager(),
@@ -144,7 +146,8 @@ void layout_node::add_expressions(expression_set & output) const
     if (halign && is_expression(*halign)) output.insert(util::get<expression_ptr>(*halign));
     if (valign && is_expression(*valign)) output.insert(util::get<expression_ptr>(*valign));
     if (jalign && is_expression(*jalign)) output.insert(util::get<expression_ptr>(*jalign));
-
+    if (shield_layout && is_expression(*shield_layout)) output.insert(util::get<expression_ptr>(*shield_layout));
+    
     if (child_) child_->add_expressions(output);
 }
 

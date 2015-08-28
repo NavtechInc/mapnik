@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -60,6 +60,8 @@ enum class keys : std::uint8_t
     file,
     shield_dx,
     shield_dy,
+    shield_stroke,
+    shield_layout,
     unlock_image,
     mode,
     scaling,
@@ -89,9 +91,12 @@ enum class keys : std::uint8_t
     justify_alignment,
     vertical_alignment,
     upright,
-    direction,
     avoid_edges,
+    adjust_edges,
+    fit_marker,
     ff_settings,
+    leading_line,
+    mask_background,
     MAX_SYMBOLIZER_KEY
 };
 

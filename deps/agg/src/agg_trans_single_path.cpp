@@ -91,9 +91,9 @@ void trans_single_path::finalize_path()
         for(i = 0; i < m_src_vertices.size(); i++)
         {
             vertex_dist& v = m_src_vertices[i];
-            double dd = v.dist;
+            double d = v.dist;
             v.dist = dist;
-            dist += dd;
+            dist += d;
         }
         m_kindex = (m_src_vertices.size() - 1) / dist;
         m_status = ready;

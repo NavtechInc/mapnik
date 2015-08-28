@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -97,24 +97,24 @@ public:
     std::vector<std::string>& styles();
 
     /*!
-     * @param minimum_scale_denom The minimum scale denominator
+     * @param min_zoom The minimum zoom level to set
      */
-    void set_minimum_scale_denominator(double minimum_scale_denom);
+    void set_min_zoom(double min_zoom);
 
     /*!
-     * @param maximum_scale_denom The maximum scale denominator
+     * @param max_zoom The maximum zoom level to set
      */
-    void set_maximum_scale_denominator(double maximum_scale_denom);
+    void set_max_zoom(double max_zoom);
 
     /*!
      * @return the minimum zoom level of the layer.
      */
-    double minimum_scale_denominator() const;
+    double min_zoom() const;
 
     /*!
      * @return the maximum zoom level of the layer.
      */
-    double maximum_scale_denominator() const;
+    double max_zoom() const;
 
     /*!
      * @brief Set whether this layer is active and will be rendered.
@@ -137,18 +137,18 @@ public:
     bool queryable() const;
 
     /*!
-     * @brief Get the visibility for a specific scale denominator.
+     * @brief Get the visability for a specific scale.
      *
-     * @param scale_denom Accepts an integer or float input.
+     * @param scale Accepts an integer or float input.
      *
-     * @return true if this layer's data is active and visible at a given scale denominator.
+     * @return true if this layer's data is active and visible at a given scale.
      *         Otherwise returns False.
      *         false if:
-     *         scale_denominator >= minimum_scale_denominator - 1e-6
+     *         scale >= minzoom - 1e-6
      *         or
-     *         scale_denominator < maximum_scale_denominator + 1e-6
+     *         scale < maxzoom + 1e-6
      */
-    bool visible(double scale_denom) const;
+    bool visible(double scale) const;
 
     /*!
      * @param clear_cache Set whether this layer's labels are cached.
@@ -207,8 +207,8 @@ public:
 private:
     std::string name_;
     std::string srs_;
-    double minimum_scale_denom_;
-    double maximum_scale_denom_;
+    double min_zoom_;
+    double max_zoom_;
     bool active_;
     bool queryable_;
     bool clear_label_cache_;

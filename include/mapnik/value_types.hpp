@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,7 +25,6 @@
 
 // mapnik
 #include <mapnik/config.hpp>
-#include <mapnik/pixel_types.hpp>
 
 // icu
 #include <unicode/uversion.h> // for U_NAMESPACE_QUALIFIER
@@ -43,13 +42,9 @@ namespace mapnik  {
 
 #ifdef BIGINT
 //using value_integer = boost::long_long_type;
-//using value_integer = long long;
-using value_integer = std::int64_t;
-using value_integer_pixel = gray64s_t;
+using value_integer = long long;
 #else
-//using value_integer = int;
-using value_integer = std::int32_t;
-using value_integer_pixel = gray32s_t;
+using value_integer = int;
 #endif
 
 using value_double = double;

@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,11 +29,11 @@
 #include <mapnik/unicode.hpp>
 #ifdef SHAPE_MEMORY_MAPPED_FILE
 #include <mapnik/mapped_memory_cache.hpp>
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow"
-#include <boost/interprocess/streams/bufferstream.hpp>
-#pragma GCC diagnostic pop
 #endif
+
+
+// boost
+#include <boost/interprocess/streams/bufferstream.hpp>
 
 // stl
 #include <vector>

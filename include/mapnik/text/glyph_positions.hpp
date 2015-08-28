@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,7 +26,6 @@
 #include <mapnik/pixel_position.hpp>
 #include <mapnik/text/rotation.hpp>
 #include <mapnik/marker_cache.hpp>
-#include <mapnik/text/glyph_info.hpp>
 
 // agg
 #include "agg_trans_affine.h"
@@ -37,6 +36,8 @@
 
 namespace mapnik
 {
+
+struct glyph_info;
 
 struct glyph_position
 {
@@ -49,20 +50,18 @@ struct glyph_position
 
 struct marker_info
 {
-    //marker_info() : marker(), transform() {}
-    marker_info(std::shared_ptr<marker const> _marker, agg::trans_affine const& _transform) :
-        marker_(_marker), transform_(_transform) {}
-    std::shared_ptr<marker const> marker_;
-    agg::trans_affine transform_;
+    marker_info() : marker(), transform() {}
+    marker_info(marker_ptr _marker, agg::trans_affine const& _transform) :
+        marker(_marker), transform(_transform) {}
+    marker_ptr marker;
+    agg::trans_affine transform;
 };
-
 using marker_info_ptr = std::shared_ptr<marker_info>;
 
 /** Stores positions of glphys.
  *
  * The actual glyphs and their format are stored in text_layout.
  */
-
 class glyph_positions
 {
 public:
@@ -78,17 +77,26 @@ public:
 
     pixel_position const& get_base_point() const;
     void set_base_point(pixel_position const& base_point);
-    void set_marker(marker_info_ptr marker, pixel_position const& marker_pos);
-    marker_info_ptr get_marker() const;
-    pixel_position const& marker_pos() const;
+    //WI: Added John's changes for marker rotation 13NOV2014 (identity transform in general)
+    void set_marker(marker_info_ptr marker, pixel_position const& marker_pos, box2d<double> const& marker_bbox,  agg::trans_affine const& marker_placement_tr= agg::trans_affine());
+    
+    marker_info_ptr marker() const;
+    pixel_position const& marker_pos() const; 
+    box2d<double> const & bbox() const;
+    box2d<double> const & marker_bbox() const;
+    agg::trans_affine const& marker_placement_tr() const { return marker_placement_tr_; }
+    
 private:
     std::vector<glyph_position> data_;
     pixel_position base_point_;
-    marker_info_ptr marker_info_;
+    marker_info_ptr marker_;
     pixel_position marker_pos_;
+    //WI: Added John's changes for marker rotation 13NOV2014
+    agg::trans_affine marker_placement_tr_;
     box2d<double> bbox_;
+    box2d<double> marker_bbox_;
 };
-using glyph_positions_ptr = std::unique_ptr<glyph_positions>;
+using glyph_positions_ptr = std::shared_ptr<glyph_positions>;
 
 using placements_list = std::list<glyph_positions_ptr>;
 }

@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -56,8 +56,8 @@ public:
     text_renderer (halo_rasterizer_e rasterizer,
                    composite_mode_e comp_op = src_over,
                    composite_mode_e halo_comp_op = src_over,
-                   double scale_factor = 1.0,
-                   stroker_ptr stroker = stroker_ptr());
+                   double scale_factor=1.0,
+                   stroker_ptr stroker=stroker_ptr());
     void set_transform(agg::trans_affine const& transform);
     void set_halo_transform(agg::trans_affine const& halo_transform);
 protected:
@@ -83,7 +83,7 @@ public:
                        composite_mode_e halo_comp_op = src_over,
                        double scale_factor = 1.0,
                        stroker_ptr stroker = stroker_ptr());
-    void render(glyph_positions const& positions);
+    void render(glyph_positions const& positions, pixel_position original_point = pixel_position());
 private:
     pixmap_type & pixmap_;
     void render_halo(FT_Bitmap_ *bitmap, unsigned rgba, int x, int y,

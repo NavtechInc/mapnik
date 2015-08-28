@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -717,11 +717,6 @@ struct convert<std::string>
         return str;
     }
 
-    std::string operator() (value_bool val) const
-    {
-        return val ? "true": "false";
-    }
-
     std::string operator() (value_null const&) const
     {
         return "";
@@ -749,16 +744,6 @@ struct to_unicode
     {
         std::string str;
         util::to_string(str,val);
-        return value_unicode_string(str.c_str());
-    }
-
-    value_unicode_string operator() (value_bool val) const
-    {
-        if (val) {
-            std::string str("true");
-            return value_unicode_string(str.c_str());
-        }
-        std::string str("false");
         return value_unicode_string(str.c_str());
     }
 
@@ -833,7 +818,7 @@ public:
 
     template <typename T>
     value ( T && val)
-        : value_base(typename detail::mapnik_value_type<T>::type(val)) {}
+        : value_base(std::move(typename detail::mapnik_value_type<T>::type(val))) {}
 
     value & operator=( value const& other) = default;
 
@@ -958,6 +943,7 @@ inline std::size_t hash_value(value const& val)
 } // namespace value_adl_barrier
 
 using value_adl_barrier::value;
+using value_adl_barrier::operator<<;
 
 namespace detail {
 
@@ -988,25 +974,5 @@ inline bool value::is_null() const
 }
 
 } // namespace mapnik
-
-// support for std::unordered_xxx
-namespace std
-{
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmismatched-tags"
-
-template <>
-struct hash<mapnik::value>
-{
-    size_t operator()(mapnik::value const& val) const
-    {
-        return mapnik::mapnik_hash_value(val);
-    }
-};
-
-#pragma clang diagnostic pop
-
-}
 
 #endif // MAPNIK_VALUE_HPP

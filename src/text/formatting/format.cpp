@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,6 +29,7 @@
 #include <mapnik/text/properties_util.hpp>
 #include <mapnik/ptree_helpers.hpp>
 #include <mapnik/xml_node.hpp>
+#include <mapnik/boolean.hpp>
 
 //boost
 #include <boost/optional.hpp>
@@ -54,6 +55,9 @@ void format_node::to_xml(ptree & xml) const
     if (text_transform) serialize_property("text-transform", *text_transform, new_node);
     if (ff_settings) serialize_property("font-feature-settings", *ff_settings, new_node);
 
+    if (leading_line) serialize_property("leading-line", *leading_line, new_node);
+    if (mask_background) serialize_property("mask-background", *mask_background, new_node);
+    
     if (face_name) set_attr(new_node, "face-name", *face_name);
     if (fontset) set_attr(new_node, "fontset-name", fontset->get_name());
 
@@ -78,6 +82,9 @@ node_ptr format_node::from_xml(xml_node const& xml, fontset_map const& fontsets)
     set_property_from_xml<text_transform_e>(n->text_transform, "text-transform", xml);
     set_property_from_xml<font_feature_settings>(n->ff_settings, "font-feature-settings", xml);
 
+    set_property_from_xml<boolean_type>(n->leading_line, "leading-line", xml);
+    set_property_from_xml<boolean_type>(n->mask_background, "mask-background", xml);
+    
     boost::optional<std::string> face_name = xml.get_opt_attr<std::string>("face-name");
     if (face_name)
     {
@@ -118,6 +125,10 @@ void format_node::apply(evaluated_format_properties_ptr const& p, feature_impl c
     if (text_transform) new_properties->text_transform = util::apply_visitor(extract_value<text_transform_enum>(feature,attrs), *text_transform);
     if (ff_settings) new_properties->ff_settings = util::apply_visitor(extract_value<font_feature_settings>(feature,attrs), *ff_settings);
 
+    if (leading_line) new_properties->leading_line = util::apply_visitor(extract_value<value_bool>(feature,attrs), *leading_line);
+    
+    if (mask_background) new_properties->mask_background = util::apply_visitor(extract_value<value_bool>(feature,attrs), *mask_background);
+    
     if (fontset)
     {
         new_properties->fontset = *fontset;
@@ -155,6 +166,8 @@ void format_node::add_expressions(expression_set & output) const
     if (halo_radius && is_expression(*halo_radius)) output.insert(util::get<expression_ptr>(*halo_radius));
     if (text_opacity && is_expression(*text_opacity)) output.insert(util::get<expression_ptr>(*text_opacity));
     //if (halo_opacity && is_expression(*halo_opacity)) output.insert(util::get<expression_ptr>(*halo_opacity));
+    if (leading_line && is_expression(*leading_line)) output.insert(util::get<expression_ptr>(*leading_line));
+    if (mask_background && is_expression(*mask_background)) output.insert(util::get<expression_ptr>(*mask_background));
     if (wrap_before && is_expression(*wrap_before)) output.insert(util::get<expression_ptr>(*wrap_before));
     if (repeat_wrap_char && is_expression(*repeat_wrap_char)) output.insert(util::get<expression_ptr>(*repeat_wrap_char));
     if (fill && is_expression(*fill)) output.insert(util::get<expression_ptr>(*fill));

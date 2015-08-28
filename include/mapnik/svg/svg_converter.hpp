@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,7 +27,6 @@
 #include <mapnik/svg/svg_path_attributes.hpp>
 #include <mapnik/svg/svg_path_adapter.hpp>
 #include <mapnik/util/noncopyable.hpp>
-#include <mapnik/safe_cast.hpp>
 
 // agg
 #include "agg_path_storage.h"
@@ -58,8 +57,8 @@ public:
 
     void begin_path()
     {
-        std::size_t idx = source_.start_new_path();
-        attributes_.add(path_attributes(cur_attr(), safe_cast<unsigned>(idx)));
+        unsigned idx = source_.start_new_path();
+        attributes_.add(path_attributes(cur_attr(), idx));
     }
 
     void end_path()
@@ -92,7 +91,7 @@ public:
         double y2 = 0.0;
         if(source_.total_vertices())
         {
-            source_.vertex(safe_cast<unsigned>(source_.total_vertices() - 1), &x2, &y2);
+            source_.vertex(source_.total_vertices() - 1, &x2, &y2);
             if(rel) x += x2;
             source_.line_to(x, y2);
         }
@@ -104,7 +103,7 @@ public:
         double y2 = 0.0;
         if(source_.total_vertices())
         {
-            source_.vertex(safe_cast<unsigned>(source_.total_vertices() - 1), &x2, &y2);
+            source_.vertex(source_.total_vertices() - 1, &x2, &y2);
             if(rel) y += y2;
             source_.line_to(x2, y);
         }
@@ -320,12 +319,12 @@ public:
         svg_height_ = h;
     }
 
-    double width() const
+    double width()
     {
         return svg_width_;
     }
 
-    double height() const
+    double height()
     {
         return svg_height_;
     }

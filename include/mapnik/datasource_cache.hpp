@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,7 +25,7 @@
 
 // mapnik
 #include <mapnik/config.hpp>
-#include <mapnik/util/singleton.hpp>
+#include <mapnik/utils.hpp>
 #include <mapnik/util/noncopyable.hpp>
 
 // stl
@@ -33,7 +33,6 @@
 #include <set>
 #include <vector>
 #include <memory>
-#include <mutex>
 
 namespace mapnik {
 
@@ -56,12 +55,8 @@ private:
     datasource_cache();
     ~datasource_cache();
     std::map<std::string,std::shared_ptr<PluginInfo> > plugins_;
+    bool registered_;
     std::set<std::string> plugin_directories_;
-    // the singleton has a mutex protecting the instance pointer,
-    // but the instance also needs its own mutex to protect the
-    // plugins_ and plugin_directories_ members which are potentially
-    // modified recusrively by register_datasources(path, true);
-    std::recursive_mutex instance_mutex_;
 };
 
 extern template class MAPNIK_DECL singleton<datasource_cache, CreateStatic>;

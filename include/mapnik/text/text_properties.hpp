@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -61,6 +61,8 @@ struct evaluated_format_properties
     color halo_fill;
     double halo_radius;
     font_feature_settings ff_settings;
+    bool leading_line;      //GG draw a leading line to the text
+    bool mask_background;   //GG remove lines behind the text
 };
 
 struct evaluated_text_properties : util::noncopyable
@@ -69,6 +71,8 @@ struct evaluated_text_properties : util::noncopyable
     double label_spacing;
     double label_position_tolerance;
     bool avoid_edges;
+    bool adjust_edges;
+    bool fit_marker;
     double margin;
     double repeat_distance;
     double minimum_distance;
@@ -121,6 +125,8 @@ struct MAPNIK_DECL format_properties
     symbolizer_base::value_type halo_radius;
     symbolizer_base::value_type text_transform;
     symbolizer_base::value_type ff_settings;
+    symbolizer_base::value_type leading_line;
+    symbolizer_base::value_type mask_background;
 };
 
 
@@ -152,6 +158,7 @@ struct MAPNIK_DECL text_layout_properties
     symbolizer_base::value_type halign;
     symbolizer_base::value_type jalign;
     symbolizer_base::value_type valign;
+    symbolizer_base::value_type shield_layout;
     directions_e dir = EXACT_POSITION;
 };
 
@@ -161,6 +168,8 @@ struct text_properties_expressions
     symbolizer_base::value_type label_spacing = 0.0;
     symbolizer_base::value_type label_position_tolerance = 0.0;
     symbolizer_base::value_type avoid_edges = false;
+    symbolizer_base::value_type adjust_edges = false;
+    symbolizer_base::value_type fit_marker = false;
     symbolizer_base::value_type margin = 0.0;
     symbolizer_base::value_type repeat_distance = 0.0;
     symbolizer_base::value_type minimum_distance = 0.0;

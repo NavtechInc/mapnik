@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,9 +26,10 @@
 #define MAPNIK_VERSION_IS_RELEASE 0
 
 #define MAPNIK_MAJOR_VERSION 3
-#define MAPNIK_MINOR_VERSION 1
+#define MAPNIK_MINOR_VERSION 0
 #define MAPNIK_PATCH_VERSION 0
 
+// translates to 300000
 #define MAPNIK_VERSION (MAPNIK_MAJOR_VERSION*100000) + (MAPNIK_MINOR_VERSION*100) + (MAPNIK_PATCH_VERSION)
 
 #ifndef MAPNIK_STRINGIFY

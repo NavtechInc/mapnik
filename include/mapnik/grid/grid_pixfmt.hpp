@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -24,21 +24,15 @@
 #define MAPNIK_GRID_PIXFMT_HPP
 
 #include <string>
-#include <mapnik/grid/grid_rendering_buffer.hpp>
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#pragma GCC diagnostic ignored "-Wconversion"
 #include "agg_basics.h"
 #include <mapnik/grid/grid_pixel.hpp>
-#pragma GCC diagnostic pop
+#include <mapnik/grid/grid_rendering_buffer.hpp>
 
 namespace mapnik
 {
 
 //============================================================blender_gray
-template<typename ColorT> struct blender_gray
+template<class ColorT> struct blender_gray
 {
     using color_type = ColorT;
     using value_type = typename color_type::value_type;
@@ -55,7 +49,7 @@ template<typename ColorT> struct blender_gray
 
 
 //=====================================================apply_gamma_dir_gray
-template<typename ColorT, class GammaLut> class apply_gamma_dir_gray
+template<class ColorT, class GammaLut> class apply_gamma_dir_gray
 {
 public:
     using value_type = typename ColorT::value_type;
@@ -74,7 +68,7 @@ private:
 
 
 //=====================================================apply_gamma_inv_gray
-template<typename ColorT, class GammaLut> class apply_gamma_inv_gray
+template<class ColorT, class GammaLut> class apply_gamma_inv_gray
 {
 public:
     using value_type = typename ColorT::value_type;
@@ -93,7 +87,7 @@ private:
 
 
 //=================================================pixfmt_alpha_blend_gray
-template<typename Blender, class RenBuf, unsigned Step=1, unsigned Offset=0>
+template<class Blender, class RenBuf, unsigned Step=1, unsigned Offset=0>
 class pixfmt_alpha_blend_gray
 {
 public:
@@ -160,7 +154,7 @@ public:
     void attach(rbuf_type& rb) { m_rbuf = &rb; }
     //--------------------------------------------------------------------
 
-    template<typename PixFmt>
+    template<class PixFmt>
     bool attach(PixFmt& pixf, int x1, int y1, int x2, int y2)
     {
         agg::rect_i r(x1, y1, x2, y2);
@@ -538,10 +532,10 @@ public:
     }
 
     //--------------------------------------------------------------------
-    template <typename Function>
-    void for_each_pixel(Function f)
+    template<class Function> void for_each_pixel(Function f)
     {
-        for(unsigned y = 0; y < height(); ++y)
+        unsigned y;
+        for(y = 0; y < height(); ++y)
         {
             row_data r = m_rbuf->row(y);
             if(r.ptr)
@@ -562,19 +556,19 @@ public:
     }
 
     //--------------------------------------------------------------------
-    template<typename GammaLut> void apply_gamma_dir(const GammaLut& g)
+    template<class GammaLut> void apply_gamma_dir(const GammaLut& g)
     {
         for_each_pixel(apply_gamma_dir_gray<color_type, GammaLut>(g));
     }
 
     //--------------------------------------------------------------------
-    template<typename GammaLut> void apply_gamma_inv(const GammaLut& g)
+    template<class GammaLut> void apply_gamma_inv(const GammaLut& g)
     {
         for_each_pixel(apply_gamma_inv_gray<color_type, GammaLut>(g));
     }
 
     //--------------------------------------------------------------------
-    template<typename RenBuf2>
+    template<class RenBuf2>
     void copy_from(const RenBuf2& from,
                    int xdst, int ydst,
                    int xsrc, int ysrc,
@@ -590,7 +584,7 @@ public:
     }
 
     //--------------------------------------------------------------------
-    template<typename SrcPixelFormatRenderer>
+    template<class SrcPixelFormatRenderer>
     void blend_from_color(const SrcPixelFormatRenderer& from,
                           const color_type& color,
                           int xdst, int ydst,
@@ -617,7 +611,7 @@ public:
     }
 
     //--------------------------------------------------------------------
-    template<typename SrcPixelFormatRenderer>
+    template<class SrcPixelFormatRenderer>
     void blend_from_lut(const SrcPixelFormatRenderer& from,
                         const color_type* color_lut,
                         int xdst, int ydst,

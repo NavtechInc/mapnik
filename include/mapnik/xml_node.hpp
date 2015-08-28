@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,9 +23,6 @@
 #ifndef MAPNIK_XML_NODE_H
 #define MAPNIK_XML_NODE_H
 
-//mapnik
-#include <mapnik/config.hpp> // for MAPNIK_DECL
-
 //boost
 #include <boost/optional.hpp>
 
@@ -37,9 +34,9 @@
 
 namespace mapnik
 {
-class MAPNIK_DECL xml_tree;
+class xml_tree;
 
-class MAPNIK_DECL xml_attribute
+class xml_attribute
 {
 public:
     xml_attribute(const char * value_);
@@ -47,7 +44,7 @@ public:
     mutable bool processed;
 };
 
-class MAPNIK_DECL node_not_found: public std::exception
+class node_not_found: public std::exception
 {
 public:
     node_not_found(std::string const& node_name);
@@ -59,7 +56,7 @@ protected:
     mutable std::string msg_;
 };
 
-class MAPNIK_DECL attribute_not_found: public std::exception
+class attribute_not_found: public std::exception
 {
 public:
     attribute_not_found(std::string const& node_name, std::string const& attribute_name);
@@ -72,7 +69,7 @@ protected:
     mutable std::string msg_;
 };
 
-class MAPNIK_DECL more_than_one_child: public std::exception
+class more_than_one_child: public std::exception
 {
 public:
     more_than_one_child(std::string const& node_name);
@@ -84,7 +81,7 @@ protected:
     mutable std::string msg_;
 };
 
-class MAPNIK_DECL xml_node
+class xml_node
 {
 public:
     using const_iterator = std::list<xml_node>::const_iterator;

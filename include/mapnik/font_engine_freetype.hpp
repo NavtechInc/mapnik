@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -39,6 +39,10 @@
 #include <mutex>
 #endif
 
+
+//harfbuzz
+#include <hb.h>
+
 namespace boost { template <class T> class optional; }
 
 namespace mapnik
@@ -50,6 +54,24 @@ class font_face_set;
 using face_set_ptr = std::unique_ptr<font_face_set>;
 class font_face;
 using face_ptr = std::shared_ptr<font_face>;
+
+using font_face_cache_key = std::pair<std::string, double> ;
+class MAPNIK_DECL font_face_cache : private util::noncopyable
+{
+public:
+    font_face_cache();
+    font_face_cache(const font_face_cache& face_cache);
+    ~font_face_cache();
+    hb_font_t* font_for_face(const face_ptr font_face, double size );
+    
+private:
+    font_face_cache_key make_face_key(const face_ptr font_face, double size);
+    std::map<font_face_cache_key, hb_font_t*> font_map_;
+#ifdef MAPNIK_THREADSAFE
+    std::mutex font_face_cache_mutex_;
+#endif
+};
+using font_face_cache_ptr = std::shared_ptr<font_face_cache>;
 
 class MAPNIK_DECL freetype_engine
 {
@@ -112,9 +134,12 @@ public:
     face_set_ptr get_face_set(std::string const& name);
     face_set_ptr get_face_set(font_set const& fset);
     face_set_ptr get_face_set(std::string const& name, boost::optional<font_set> fset);
+    inline font_face_cache_ptr get_font_face_cache() { return font_ptr_face_cache_; }
     inline stroker_ptr get_stroker() { return stroker_; }
+
 private:
     face_ptr_cache_type face_ptr_cache_;
+    font_face_cache_ptr font_ptr_face_cache_;
     font_library & library_;
     freetype_engine::font_file_mapping_type const& font_file_mapping_;
     freetype_engine::font_memory_cache_type const& font_memory_cache_;

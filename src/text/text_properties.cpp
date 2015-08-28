@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -50,6 +50,8 @@ evaluated_text_properties_ptr evaluate_text_properties(text_symbolizer_propertie
     prop->label_spacing = util::apply_visitor(extract_value<value_double>(feature,attrs), text_prop.expressions.label_spacing);
     prop->label_position_tolerance = util::apply_visitor(extract_value<value_double>(feature,attrs), text_prop.expressions.label_position_tolerance);
     prop->avoid_edges = util::apply_visitor(extract_value<value_bool>(feature,attrs), text_prop.expressions.avoid_edges);
+    prop->adjust_edges = util::apply_visitor(extract_value<value_bool>(feature,attrs), text_prop.expressions.adjust_edges);
+    prop->fit_marker = util::apply_visitor(extract_value<value_bool>(feature,attrs), text_prop.expressions.fit_marker);
     prop->margin = util::apply_visitor(extract_value<value_double>(feature,attrs), text_prop.expressions.margin);
     prop->repeat_distance = util::apply_visitor(extract_value<value_double>(feature,attrs), text_prop.expressions.repeat_distance);
     prop->minimum_distance = util::apply_visitor(extract_value<value_double>(feature,attrs), text_prop.expressions.minimum_distance);
@@ -102,6 +104,8 @@ void text_symbolizer_properties::text_properties_from_xml(xml_node const& node)
     set_property_from_xml<value_double>(expressions.minimum_padding, "minimum-padding", node);
     set_property_from_xml<value_double>(expressions.minimum_path_length, "minimum-path-length", node);
     set_property_from_xml<boolean_type>(expressions.avoid_edges, "avoid-edges", node);
+    set_property_from_xml<boolean_type>(expressions.adjust_edges, "adjust-edges", node);
+    set_property_from_xml<boolean_type>(expressions.fit_marker, "fit-marker", node);
     set_property_from_xml<boolean_type>(expressions.allow_overlap, "allow-overlap", node);
     set_property_from_xml<boolean_type>(expressions.largest_bbox_only, "largest-bbox-only", node);
     set_property_from_xml<value_double>(expressions.max_char_angle_delta, "max-char-angle-delta", node);
@@ -157,6 +161,14 @@ void text_symbolizer_properties::to_xml(boost::property_tree::ptree &node,
     {
         serialize_property("avoid-edges", expressions.avoid_edges, node);
     }
+    if (!(expressions.adjust_edges == dfl.expressions.adjust_edges) || explicit_defaults)
+    {
+        serialize_property("adjust-edges", expressions.adjust_edges, node);
+    }
+    if (!(expressions.fit_marker == dfl.expressions.fit_marker) || explicit_defaults)
+    {
+        serialize_property("fit-marker", expressions.fit_marker, node);
+    }
     if (!(expressions.allow_overlap == dfl.expressions.allow_overlap) || explicit_defaults)
     {
         serialize_property("allow-overlap", expressions.allow_overlap, node);
@@ -186,6 +198,8 @@ void text_symbolizer_properties::add_expressions(expression_set & output) const
     if (is_expression(expressions.label_spacing)) output.insert(util::get<expression_ptr>(expressions.label_spacing));
     if (is_expression(expressions.label_position_tolerance)) output.insert(util::get<expression_ptr>(expressions.label_position_tolerance));
     if (is_expression(expressions.avoid_edges)) output.insert(util::get<expression_ptr>(expressions.avoid_edges));
+    if (is_expression(expressions.adjust_edges)) output.insert(util::get<expression_ptr>(expressions.adjust_edges));
+    if (is_expression(expressions.fit_marker)) output.insert(util::get<expression_ptr>(expressions.fit_marker));
     if (is_expression(expressions.margin)) output.insert(util::get<expression_ptr>(expressions.margin));
     if (is_expression(expressions.repeat_distance)) output.insert(util::get<expression_ptr>(expressions.repeat_distance));
     if (is_expression(expressions.minimum_distance)) output.insert(util::get<expression_ptr>(expressions.minimum_distance));
@@ -220,6 +234,7 @@ void text_layout_properties::from_xml(xml_node const &node, fontset_map const& f
     set_property_from_xml<vertical_alignment_e>(valign, "vertical-alignment", node);
     set_property_from_xml<horizontal_alignment_e>(halign, "horizontal-alignment", node);
     set_property_from_xml<justify_alignment_e>(jalign, "justify-alignment", node);
+    set_property_from_xml<boolean_type>(shield_layout, "shield-layout", node);
 }
 
 void text_layout_properties::to_xml(boost::property_tree::ptree & node,
@@ -239,6 +254,7 @@ void text_layout_properties::to_xml(boost::property_tree::ptree & node,
     if (!(rotate_displacement == dfl.rotate_displacement) || explicit_defaults)
         serialize_property("rotate-displacement", rotate_displacement, node);
     if (!(orientation == dfl.orientation) || explicit_defaults) serialize_property("orientation", orientation, node);
+    if (!(shield_layout == dfl.shield_layout) || explicit_defaults) serialize_property("shield-layout", shield_layout, node);
 }
 
 void text_layout_properties::add_expressions(expression_set & output) const
@@ -255,6 +271,7 @@ void text_layout_properties::add_expressions(expression_set & output) const
     if (is_expression(halign)) output.insert(util::get<expression_ptr>(halign));
     if (is_expression(valign)) output.insert(util::get<expression_ptr>(valign));
     if (is_expression(jalign)) output.insert(util::get<expression_ptr>(jalign));
+    if (is_expression(shield_layout)) output.insert(util::get<expression_ptr>(shield_layout));
 }
 
 // text format properties
@@ -265,6 +282,8 @@ format_properties::format_properties()
       character_spacing(0.0),
       line_spacing(0.0),
       text_opacity(1.0),
+      leading_line(false),
+      mask_background(false),
       halo_opacity(1.0),
       fill(color(0,0,0)),
       halo_fill(color(255,255,255)),
@@ -288,6 +307,8 @@ void format_properties::from_xml(xml_node const& node, fontset_map const& fontse
         set_property_from_xml<double>(text_opacity, "opacity", node);
     }
     set_property_from_xml<double>(halo_opacity, "halo-opacity", node);
+    set_property_from_xml<boolean_type>(leading_line, "leading-line", node);
+    set_property_from_xml<boolean_type>(mask_background, "mask-background", node);
     set_property_from_xml<color>(fill, "fill", node);
     set_property_from_xml<color>(halo_fill, "halo-fill", node);
     set_property_from_xml<text_transform_e>(text_transform,"text-transform", node);
@@ -343,6 +364,8 @@ void format_properties::to_xml(boost::property_tree::ptree & node, bool explicit
         serialize_property("opacity", text_opacity, node);
     }
     if (!(halo_opacity == dfl.halo_opacity) || explicit_defaults) serialize_property("halo-opacity", halo_opacity, node);
+    if (!(leading_line == dfl.leading_line) || explicit_defaults) serialize_property("leading-line", leading_line, node);
+    if (!(mask_background == dfl.mask_background) || explicit_defaults) serialize_property("mask-background", mask_background, node);
     if (!(fill == dfl.fill) || explicit_defaults) serialize_property("fill", fill, node);
     if (!(halo_fill == dfl.halo_fill) || explicit_defaults) serialize_property("halo-fill", halo_fill, node);
     if (!(text_transform == dfl.text_transform) || explicit_defaults) serialize_property("text-transform", text_transform, node);
@@ -357,6 +380,8 @@ void format_properties::add_expressions(expression_set & output) const
     if (is_expression(halo_radius)) output.insert(util::get<expression_ptr>(halo_radius));
     if (is_expression(text_opacity)) output.insert(util::get<expression_ptr>(text_opacity));
     if (is_expression(halo_opacity)) output.insert(util::get<expression_ptr>(halo_opacity));
+    if (is_expression(leading_line)) output.insert(util::get<expression_ptr>(leading_line));
+    if (is_expression(mask_background)) output.insert(util::get<expression_ptr>(mask_background));
     if (is_expression(fill)) output.insert(util::get<expression_ptr>(fill));
     if (is_expression(halo_fill)) output.insert(util::get<expression_ptr>(halo_fill));
     if (is_expression(text_transform)) output.insert(util::get<expression_ptr>(text_transform));

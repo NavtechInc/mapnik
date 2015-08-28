@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -235,6 +235,20 @@ struct symbolizer_default<value_double, keys::shield_dy>
 {
     static value_double value() { return 0.0; }
 };
+    
+// shield-stroke
+template <>
+struct symbolizer_default<value_double, keys::shield_stroke>
+{
+    static color value() { return color(0,0,0); }
+};
+    
+// shield-layout
+template <>
+struct symbolizer_default<value_bool, keys::shield_layout>
+{
+    static value_bool value() { return false; }
+};
 
 // unlock-image
 template <>
@@ -329,13 +343,6 @@ struct symbolizer_default<marker_multi_policy_enum, keys::markers_multipolicy>
     static marker_multi_policy_enum value() { return  MARKER_EACH_MULTI; }
 };
 
-// direction
-template <>
-struct symbolizer_default<direction_enum, keys::direction>
-{
-    static direction_enum value() { return DIRECTION_RIGHT; }
-};
-
 // placement
 
 // colorizer
@@ -355,9 +362,38 @@ struct symbolizer_default<direction_enum, keys::direction>
 // vertical-alignment
 // upright
 
+    
+// mask-background
+template <>
+struct symbolizer_default<value_bool, keys::mask_background>
+{
+    static value_bool value() { return false; }
+};
+    
+// leading-line
+template <>
+struct symbolizer_default<value_bool, keys::leading_line>
+{
+    static value_bool value() { return false; }
+};
+    
 // avoid-edges
 template <>
 struct symbolizer_default<value_bool, keys::avoid_edges>
+{
+    static value_bool value() { return false; }
+};
+
+// adjust-edges
+template <>
+struct symbolizer_default<value_bool, keys::adjust_edges>
+{
+    static value_bool value() { return false; }
+};
+    
+// fit-marker
+template <>
+struct symbolizer_default<value_bool, keys::fit_marker>
 {
     static value_bool value() { return false; }
 };

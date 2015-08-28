@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -104,6 +104,15 @@ struct length_impl
     }
 };
 
+// atoi
+struct atoi_impl
+{
+    value_type operator() (value_type const& val)const
+    {
+        return val.to_int();
+    }
+};
+    
 // min
 inline value_type min_impl(value_type const& arg1, value_type const& arg2)
 {
@@ -121,7 +130,7 @@ inline value_type pow_impl(value_type const& arg1, value_type const& arg2)
 {
     return std::pow(arg1.to_double(), arg2.to_double());
 }
-
+    
 } // namespace mapnik
 
 #endif // MAPNIK_FUNCTION_CALL_HPP

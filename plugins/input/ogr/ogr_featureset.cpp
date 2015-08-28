@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,13 +25,13 @@
 #include <mapnik/value_types.hpp>
 #include <mapnik/debug.hpp>
 #include <mapnik/box2d.hpp>
+#include <mapnik/geometry.hpp>
 #include <mapnik/feature.hpp>
 #include <mapnik/feature_layer_desc.hpp>
 #include <mapnik/wkb.hpp>
 #include <mapnik/unicode.hpp>
 #include <mapnik/value_types.hpp>
 #include <mapnik/feature_factory.hpp>
-#include <mapnik/geometry_correct.hpp>
 
 // ogr
 #include "ogr_featureset.hpp"
@@ -101,9 +101,7 @@ feature_ptr ogr_featureset::next()
         OGRGeometry* geom = poFeature->GetGeometryRef();
         if (geom && ! geom->IsEmpty())
         {
-            auto geom_corrected = ogr_converter::convert_geometry(geom);
-            mapnik::geometry::correct(geom_corrected);
-            feature->set_geometry(std::move(geom_corrected));
+            ogr_converter::convert_geometry(geom, feature);
         }
         else
         {
@@ -129,13 +127,6 @@ feature_ptr ogr_featureset::next()
                 feature->put<mapnik::value_integer>( fld_name, poFeature->GetFieldAsInteger(i));
                 break;
             }
-#if GDAL_VERSION_MAJOR >= 2
-            case OFTInteger64:
-            {
-                feature->put<mapnik::value_integer>( fld_name, poFeature->GetFieldAsInteger64(i));
-                break;
-            }
-#endif
 
             case OFTReal:
             {
@@ -151,9 +142,6 @@ feature_ptr ogr_featureset::next()
             }
 
             case OFTIntegerList:
-#if GDAL_VERSION_MAJOR >= 2
-            case OFTInteger64List:
-#endif
             case OFTRealList:
             case OFTStringList:
             case OFTWideStringList: // deprecated !

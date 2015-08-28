@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -117,6 +117,8 @@ public:
 
     inline rotation const& orientation() const { return orientation_; }
     inline pixel_position const& displacement() const { return displacement_; }
+    inline bool rotate_displacement() const { return rotate_displacement_; }
+    inline bool shield_layout() const { return shield_layout_; }
     inline box2d<double> const& bounds() const { return bounds_; }
     inline horizontal_alignment_e horizontal_alignment() const { return halign_; }
     pixel_position alignment_offset() const;
@@ -172,6 +174,7 @@ private:
     bool repeat_wrap_char_ = false;
     bool rotate_displacement_ = false;
     double text_ratio_ = 0.0;
+    bool shield_layout_ = false;
     pixel_position displacement_ = {0,0};
     box2d<double> bounds_;
 

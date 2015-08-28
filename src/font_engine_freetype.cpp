@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,7 +27,7 @@
 #include <mapnik/text/face.hpp>
 #include <mapnik/util/fs.hpp>
 #include <mapnik/util/file_io.hpp>
-#include <mapnik/util/singleton.hpp>
+#include <mapnik/utils.hpp>
 #include <mapnik/make_unique.hpp>
 
 // boost
@@ -51,10 +51,57 @@ extern "C"
 #include FT_MODULE_H
 }
 
+//harfbuzz
+#include <hb-ft.h>
 
 namespace mapnik
 {
+/**** WI: BEGIN of Font_Face_Cache ****/
+font_face_cache::font_face_cache()
+    :font_face_cache_mutex_()
+{
+}
 
+font_face_cache::font_face_cache(const font_face_cache& face_cache)
+    :font_face_cache_mutex_(),
+     font_map_(face_cache.font_map_)
+{
+}
+
+font_face_cache::~font_face_cache()
+{
+#ifdef MAPNIK_THREADSAFE
+    mapnik::scoped_lock lock(font_face_cache_mutex_);
+#endif
+    for (std::map<font_face_cache_key, hb_font_t*>::iterator fontItr = font_map_.begin(); fontItr != font_map_.end(); fontItr++)
+    {
+        hb_font_destroy(fontItr->second);
+    }
+    font_map_.clear();
+}
+
+hb_font_t* font_face_cache::font_for_face(const face_ptr font_face, double size )
+{
+#ifdef MAPNIK_THREADSAFE
+    mapnik::scoped_lock lock(font_face_cache_mutex_);
+#endif
+    font_face_cache_key fontKey = make_face_key(font_face, size);
+    if(font_map_.find(fontKey) == font_map_.end() )
+    {
+        hb_font_t *font(hb_ft_font_create(font_face->get_face(), NULL));
+        font_map_[fontKey] = font;
+    }
+    return font_map_[fontKey];
+}
+
+font_face_cache_key font_face_cache::make_face_key(const face_ptr font_face, double size)
+{
+    std::string font_name ( font_face->get_face()->family_name);
+    font_name.append(font_face->get_face()->style_name);
+    return std::make_pair(font_name, size);
+}
+/**** WI: END of Font_Face_Cache ****/
+    
 freetype_engine::freetype_engine() {}
 freetype_engine::~freetype_engine() {}
 
@@ -84,7 +131,7 @@ unsigned long ft_read_cb(FT_Stream stream, unsigned long offset, unsigned char *
 bool freetype_engine::register_font(std::string const& file_name)
 {
 #ifdef MAPNIK_THREADSAFE
-    std::lock_guard<std::mutex> lock(mutex_);
+    mapnik::scoped_lock lock(mutex_);
 #endif
     font_library library;
     return register_font_impl(file_name, library, global_font_file_mapping_);
@@ -136,12 +183,12 @@ bool freetype_engine::register_font_impl(std::string const& file_name,
                 auto range = font_file_mapping.equal_range(name);
                 if (range.first == range.second) // the key was previously absent; insert a pair
                 {
-                    font_file_mapping.emplace_hint(range.first, name, std::make_pair(i,file_name));
+                    font_file_mapping.emplace_hint(range.first,name,std::move(std::make_pair(i,file_name)));
                 }
                 else // the key was present, replace the associated value
                 { /* some action with value range.first->second about to be overwritten here */
                     MAPNIK_LOG_WARN(font_engine_freetype) << "registering new " << name << " at '" << file_name << "'";
-                    range.first->second = std::make_pair(i,file_name); // replace value
+                    range.first->second = std::move(std::make_pair(i,file_name)); // replace value
                 }
                 success = true;
             }
@@ -166,7 +213,7 @@ bool freetype_engine::register_font_impl(std::string const& file_name,
 bool freetype_engine::register_fonts(std::string const& dir, bool recurse)
 {
 #ifdef MAPNIK_THREADSAFE
-    std::lock_guard<std::mutex> lock(mutex_);
+    mapnik::scoped_lock lock(mutex_);
 #endif
     font_library library;
     return register_fonts_impl(dir, library, global_font_file_mapping_, recurse);
@@ -338,9 +385,9 @@ face_ptr freetype_engine::create_face(std::string const& family_name,
         if (file.open())
         {
 #ifdef MAPNIK_THREADSAFE
-            std::lock_guard<std::mutex> lock(mutex_);
+            mapnik::scoped_lock lock(mutex_);
 #endif
-            auto result = global_memory_fonts.emplace(itr->second.second, std::make_pair(file.data(),file.size()));
+            auto result = global_memory_fonts.emplace(itr->second.second, std::make_pair(std::move(file.data()),file.size()));
             FT_Face face;
             FT_Error error = FT_New_Memory_Face(library.get(),
                                                 reinterpret_cast<FT_Byte const*>(result.first->second.first.get()), // data
@@ -374,6 +421,8 @@ face_manager::face_manager(font_library & library,
             {
                 stroker_ = std::make_shared<stroker>(s);
             }
+            font_face_cache face_cache;
+            font_ptr_face_cache_ = std::make_shared<font_face_cache>(face_cache);
       }
 
 face_ptr face_manager::get_face(std::string const& name)

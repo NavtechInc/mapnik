@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,13 +22,9 @@
 #ifndef SYMBOLIZER_HELPERS_HPP
 #define SYMBOLIZER_HELPERS_HPP
 
-// mapnik
+//mapnik
 #include <mapnik/text/placement_finder.hpp>
-#include <mapnik/text/placements/base.hpp>
 #include <mapnik/vertex_converters.hpp>
-#include <mapnik/geometry.hpp>
-#include <mapnik/text/glyph_positions.hpp>
-#include <mapnik/text/text_properties.hpp>
 
 namespace mapnik {
 
@@ -46,7 +42,7 @@ struct placement_finder_adapter
           points_on_line_(points_on_line) {}
 
     template <typename PathT>
-    void add_path(PathT & path) const
+    void add_path(PathT & path)
     {
         status_ = finder_.find_line_placements(path, points_on_line_);
     }
@@ -59,18 +55,11 @@ struct placement_finder_adapter
 
 };
 
-using vertex_converter_type = vertex_converter<clip_line_tag , transform_tag, affine_transform_tag, simplify_tag, smooth_tag>;
+using vertex_converter_type = vertex_converter<placement_finder_adapter<placement_finder>,clip_line_tag , transform_tag, affine_transform_tag, simplify_tag, smooth_tag>;
 
 class base_symbolizer_helper
 {
 public:
-
-    using point_cref = std::reference_wrapper<geometry::point<double> const>;
-    using line_string_cref = std::reference_wrapper<geometry::line_string<double> const>;
-    using polygon_cref = std::reference_wrapper<geometry::polygon<double> const>;
-    using geometry_cref = util::variant<point_cref, line_string_cref, polygon_cref>;
-    // Using list instead of vector, because we delete random elements and need iterators to stay valid.
-    using geometry_container_type = std::list<geometry_cref>;
     base_symbolizer_helper(symbolizer_base const& sym,
                            feature_impl const& feature,
                            attributes const& vars,
@@ -80,7 +69,9 @@ public:
                            double scale_factor,
                            view_transform const& t,
                            box2d<double> const& query_extent);
-
+    /* Return pixel point of the geometry  */
+    pixel_position getScreenPostion();
+    
 protected:
     void initialize_geometries() const;
     void initialize_points() const;
@@ -93,21 +84,24 @@ protected:
     view_transform const& t_;
     box2d<double> dims_;
     box2d<double> const& query_extent_;
-    double scale_factor_;
+    float scale_factor_;
 
     //Processing
+    // Using list instead of vector, because we delete random elements and need iterators to stay valid.
     // Remaining geometries to be processed.
-    mutable geometry_container_type geometries_to_process_;
-    // Geometry currently being processed.
-    mutable geometry_container_type::iterator geo_itr_;
+    mutable std::list<geometry_type*> geometries_to_process_;
     // Remaining points to be processed.
     mutable std::list<pixel_position> points_;
+    // Geometry currently being processed.
+    mutable std::list<geometry_type*>::iterator geo_itr_;
     // Point currently being processed.
     mutable std::list<pixel_position>::iterator point_itr_;
     // Use point placement. Otherwise line placement is used.
     mutable bool point_placement_;
     text_placement_info_ptr info_ptr_;
     evaluated_text_properties_ptr text_props_;
+    //screen position (GG)
+    mutable pixel_position screen_position;
 };
 
 // Helper object that does all the TextSymbolizer placement finding

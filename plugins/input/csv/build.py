@@ -1,7 +1,7 @@
 #
 # This file is part of Mapnik (c++ mapping toolkit)
 #
-# Copyright (C) 2015 Artem Pavlenko
+# Copyright (C) 2013 Artem Pavlenko
 #
 # Mapnik is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -30,8 +30,6 @@ plugin_env = plugin_base.Clone()
 plugin_sources = Split(
   """
   %(PLUGIN_NAME)s_datasource.cpp
-  %(PLUGIN_NAME)s_featureset.cpp
-  %(PLUGIN_NAME)s_inline_featureset.cpp
   """ % locals()
 )
 

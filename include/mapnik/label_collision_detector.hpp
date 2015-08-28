@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -78,7 +78,7 @@ public:
         tree_t::query_iterator end = tree_.query_end();
         for ( ;itr != end; ++itr)
         {
-            if (itr->get().intersects(box)) return false;
+            if (itr->intersects(box)) return false;
         }
         tree_.insert(box,box);
         return true;
@@ -108,7 +108,7 @@ public:
 
         for ( ;itr != end; ++itr)
         {
-            if (itr->get().intersects(box)) return false;
+            if (itr->intersects(box)) return false;
         }
         return true;
     }
@@ -155,7 +155,7 @@ public:
 
         for ( ;itr != end; ++itr)
         {
-            if (itr->get().box.intersects(box)) return false;
+            if (itr->box.intersects(box)) return false;
         }
 
         return true;
@@ -173,7 +173,7 @@ public:
 
         for (;itr != end; ++itr)
         {
-            if (itr->get().box.intersects(margin_box))
+            if (itr->box.intersects(margin_box))
             {
                 return false;
             }
@@ -201,7 +201,7 @@ public:
 
         for ( ;itr != end; ++itr)
         {
-            if (itr->get().box.intersects(margin_box) || (text == itr->get().text && itr->get().box.intersects(repeat_box)))
+            if (itr->box.intersects(margin_box) || (text == itr->text && itr->box.intersects(repeat_box)))
             {
                 return false;
             }
@@ -212,18 +212,12 @@ public:
 
     void insert(box2d<double> const& box)
     {
-        if (tree_.extent().intersects(box))
-        {
-            tree_.insert(label(box), box);
-        }
+        tree_.insert(label(box), box);
     }
 
     void insert(box2d<double> const& box, mapnik::value_unicode_string const& text)
     {
-        if (tree_.extent().intersects(box))
-        {
-            tree_.insert(label(box, text), box);
-        }
+        tree_.insert(label(box, text), box);
     }
 
     void clear()

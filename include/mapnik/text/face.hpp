@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -44,7 +44,7 @@ extern "C"
 namespace mapnik
 {
 
-class MAPNIK_DECL font_face : util::noncopyable
+class font_face : util::noncopyable
 {
 public:
     font_face(FT_Face face);
@@ -87,7 +87,7 @@ public:
     void set_character_sizes(double size);
     void set_unscaled_character_sizes();
 
-    std::size_t size() const { return faces_.size(); }
+    unsigned size() const { return faces_.size(); }
     iterator begin() { return faces_.begin(); }
     iterator end() { return faces_.end(); }
 private:

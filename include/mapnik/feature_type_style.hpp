@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,6 +28,7 @@
 #include <mapnik/enumeration.hpp>
 #include <mapnik/image_filter_types.hpp>
 #include <mapnik/image_compositing.hpp>
+#include <mapnik/rule.hpp>
 
 // boost
 #include <boost/optional.hpp>
@@ -39,7 +40,7 @@
 namespace mapnik
 {
 
-class rule;
+//class rule;
 
 enum filter_mode_enum {
     FILTER_ALL,

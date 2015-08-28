@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2015 Artem Pavlenko
+ * Copyright (C) 2014 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -42,6 +42,7 @@
 // sqlite
 extern "C" {
 #include <sqlite3.h>
+#include "spatialite.h"
 }
 
 #include "sqlite_resultset.hpp"
@@ -55,18 +56,20 @@ public:
 
     sqlite_connection (std::string const& file)
         : db_(0),
+          spatialite_(0),
           file_(file)
     {
 #if SQLITE_VERSION_NUMBER >= 3005000
         int mode = SQLITE_OPEN_READWRITE;
 #if SQLITE_VERSION_NUMBER >= 3006018
-        // shared cache flag not available until >= 3.6.18
+        // shared cache flag SQLITE_OPEN_SHAREDCACHE not available until >= 3.6.18
         // Don't use shared cache in SQLite prior to 3.7.15.
         // https://github.com/mapnik/mapnik/issues/2483
-        if (sqlite3_libversion_number() >= 3007015)
-        {
-            mode |= SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_SHAREDCACHE;
-        }
+        mode |= SQLITE_OPEN_FULLMUTEX;
+        /* WI: Shared cache was disabled and WAL enabled based on:
+         * http://manski.net/2012/10/sqlite-performance/
+         */
+        mode |= SQLITE_OPEN_WAL;
 #endif
         const int rc = sqlite3_open_v2 (file_.c_str(), &db_, mode, 0);
 #else
@@ -79,12 +82,14 @@ public:
 
             throw mapnik::datasource_exception (s.str());
         }
-
+        
         sqlite3_busy_timeout(db_,5000);
+        load_spatialite();
     }
 
     sqlite_connection (std::string const& file, int flags)
         : db_(0),
+          spatialite_(0),
           file_(file)
     {
 #if SQLITE_VERSION_NUMBER >= 3005000
@@ -99,16 +104,46 @@ public:
 
             throw mapnik::datasource_exception (s.str());
         }
+        load_spatialite();
     }
 
     virtual ~sqlite_connection ()
     {
         if (db_)
         {
+            unload_spatialite();
+            sqlite3_db_release_memory(db_);
             sqlite3_close (db_);
         }
     }
 
+    void load_spatialite()
+    {
+#if SPATIALITE_VERSION_NUMBER >= 4001000
+        if(spatialite_)
+        {
+            return;
+        }
+        spatialite_ = spatialite_alloc_connection();
+        spatialite_init_ex(db_,spatialite_, 0);
+#else
+        spatialite_init(0);
+#endif
+    }
+    
+    void unload_spatialite()
+    {
+#if SPATIALITE_VERSION_NUMBER >= 4001000
+        if(!spatialite_)
+        {
+            return;
+        }
+        spatialite_cleanup_ex(spatialite_);
+#else
+        spatialite_cleanup();
+#endif
+    }
+    
     void throw_sqlite_error(std::string const& sql)
     {
         std::ostringstream s;
@@ -178,6 +213,7 @@ public:
 private:
 
     sqlite3* db_;
+    void* spatialite_;
     std::string file_;
 };
 
