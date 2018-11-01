@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2014 Artem Pavlenko
+ * Copyright (C) 2015 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,7 +26,6 @@
 #include <mapnik/box2d.hpp>
 #include <mapnik/pixel_position.hpp>
 #include <mapnik/text/text_layout.hpp>
-#include <mapnik/text/placements/base.hpp>
 #include <mapnik/text/glyph_positions.hpp>
 #include <mapnik/text/rotation.hpp>
 #include <mapnik/util/noncopyable.hpp>
@@ -76,14 +75,13 @@ private:
     // Adjusts user defined spacing to place an integer number of labels.
     double get_spacing(double path_length, double layout_width) const;
     // Checks for collision.
-    bool collision(box2d<double> const& box, const value_unicode_string &repeat_key, bool line_placement) const;
+    bool collision(box2d<double> const& box, const value_unicode_string &repeat_key, bool line_placement, rotation const& rot = rotation()) const;
     // Adds marker to glyph_positions and to collision detector. Returns false if there is a collision.
     //WI: Added John's changes for marker rotation 13NOV2014
-    bool add_marker(glyph_positions_ptr glyphs, pixel_position const& pos, bool line_placement, agg::trans_affine const& placement_tr) const;
-    // Maps upright==auto, left_only and right_only to left,right to simplify processing.
+    bool add_marker(glyph_positions_ptr &glyphs, pixel_position const& pos, std::vector<box2d<double>> & bboxes, bool line_placement, agg::trans_affine const& placement_tr) const;
+    // Maps upright==auto, left-only and right-only to left,right to simplify processing.
     // angle = angle of at start of line (to estimate best option for upright==auto)
     text_upright_e simplify_upright(text_upright_e upright, double angle) const;
-    box2d<double> get_bbox(text_layout const& layout, glyph_info const& glyph, pixel_position const& pos, rotation const& rot);
     feature_impl const& feature_;
     attributes const& attr_;
     DetectorType & detector_;
@@ -96,15 +94,15 @@ private:
     face_manager_freetype &font_manager_;
 
     placements_list placements_;
-
+    std::vector<text_layout_ptr> processed_layouts_;
     //ShieldSymbolizer
     bool has_marker_;
     marker_info_ptr marker_;
     box2d<double> marker_box_;
     bool marker_unlocked_;
     pixel_position marker_displacement_;
-    double move_dx_ = 0.0;
-    horizontal_alignment_e horizontal_alignment_ = H_LEFT;
+    double move_dx_;
+    horizontal_alignment_e horizontal_alignment_;
 };
 
 }//ns mapnik
