@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2014 Artem Pavlenko
+ * Copyright (C) 2015 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,10 +27,14 @@
 #include <mapnik/feature.hpp>
 #include <mapnik/symbolizer.hpp>
 #include <mapnik/text/harfbuzz_shaper.hpp>
+//#include <mapnik/text/icu_shaper.hpp>
 #include <mapnik/make_unique.hpp>
 
-// ICU
+#pragma GCC diagnostic push
+#include <mapnik/warning_ignore.hpp>
 #include <unicode/brkiter.h>
+#pragma GCC diagnostic pop
+
 #include <algorithm>
 
 namespace mapnik
@@ -139,7 +143,9 @@ text_layout::text_layout(face_manager_freetype & font_manager,
             format_->text_opacity = util::apply_visitor(extract_value<value_double>(feature,attrs), format_defaults.text_opacity);
             format_->halo_opacity = util::apply_visitor(extract_value<value_double>(feature,attrs), format_defaults.halo_opacity);
             format_->leading_line = util::apply_visitor(extract_value<value_bool>(feature,attrs), format_defaults.leading_line);
-            format_->mask_background = util::apply_visitor(extract_value<value_bool>(feature,attrs), format_defaults.mask_background);
+            format_->mask_background = util::apply_visitor(extract_value<mask_background_enum>(feature,attrs), format_defaults.mask_background);
+            format_->surrounding_box = util::apply_visitor(extract_value<text_surround_enum>(feature,attrs), format_defaults.surrounding_box);
+            format_->mask_color = util::apply_visitor(extract_value<color>(feature,attrs), format_defaults.mask_color);
 
             format_->halo_radius = util::apply_visitor(extract_value<value_double>(feature,attrs), format_defaults.halo_radius);
             format_->fill = util::apply_visitor(extract_value<color>(feature,attrs), format_defaults.fill);
@@ -218,17 +224,19 @@ void text_layout::break_line_icu(std::pair<unsigned, unsigned> && line_limits)
     shape_text(line);
 
     double scaled_wrap_width = wrap_width_ * scale_factor_;
-    if (!scaled_wrap_width || line.width() < scaled_wrap_width)
+    if (scaled_wrap_width <= 0 || line.width() < scaled_wrap_width)
     {
         add_line(std::move(line));
         return;
     }
-    if (text_ratio_)
+    if (text_ratio_ > 0)
     {
         double wrap_at;
         double string_width = line.width();
         double string_height = line.line_height();
-        for (double i = 1.0; ((wrap_at = string_width/i)/(string_height*i)) > text_ratio_ && (string_width/i) > scaled_wrap_width; i += 1.0) ;
+        for (double i = 1.0;
+             ((wrap_at = string_width/i)/(string_height*i)) > text_ratio_ && (string_width/i) > scaled_wrap_width;
+             i += 1.0) ;
         scaled_wrap_width = wrap_at;
     }
 
@@ -247,10 +255,9 @@ void text_layout::break_line_icu(std::pair<unsigned, unsigned> && line_limits)
     }
 
     breakitr->setText(text);
-
     double current_line_length = 0;
     int last_break_position = static_cast<int>(line.first_char());
-    for (unsigned i=line.first_char(); i < line.last_char(); ++i)
+    for (unsigned i = line.first_char(); i < line.last_char(); ++i)
     {
         // TODO: character_spacing
         std::map<unsigned, double>::const_iterator width_itr = width_map_.find(i);
@@ -260,7 +267,7 @@ void text_layout::break_line_icu(std::pair<unsigned, unsigned> && line_limits)
         }
         if (current_line_length <= scaled_wrap_width) continue;
 
-        int break_position = wrap_before_ ? breakitr->preceding(i) : breakitr->following(i);
+        int break_position = wrap_before_ ? breakitr->preceding(i + 1) : breakitr->following(i);
         // following() returns a break position after the last word. So DONE should only be returned
         // when calling preceding.
         if (break_position <= last_break_position || break_position == static_cast<int>(BreakIterator::DONE))
@@ -284,15 +291,18 @@ void text_layout::break_line_icu(std::pair<unsigned, unsigned> && line_limits)
         {
             break_position = line.last_char();
         }
+        bool adjust_for_space_character = break_position > 0 && text[break_position - 1] == 0x0020;
 
-        text_line new_line(last_break_position, break_position);
-        clear_cluster_widths(last_break_position, break_position);
+        text_line new_line(last_break_position, adjust_for_space_character ? break_position - 1 : break_position);
+        clear_cluster_widths(last_break_position, adjust_for_space_character ? break_position - 1 : break_position);
         shape_text(new_line);
         add_line(std::move(new_line));
+
         last_break_position = break_position;
         i = break_position - 1;
         current_line_length = 0;
     }
+
     if (last_break_position == static_cast<int>(line.first_char()))
     {
         // No line breaks => no reshaping required
@@ -369,7 +379,7 @@ void text_layout::break_line(std::pair<unsigned, unsigned> && line_limits)
         }
         if (current_line_length <= scaled_wrap_width) continue;
 
-        int break_position = wrap_before_ ? breaker.preceding(i) : breaker.following(i);
+        int break_position = wrap_before_ ? breaker.preceding(i + 1) : breaker.following(i);
         if (break_position <= last_break_position || break_position == static_cast<int>(BreakIterator::DONE))
         {
             break_position = breaker.following(i);
@@ -440,6 +450,7 @@ void text_layout::clear()
 void text_layout::shape_text(text_line & line)
 {
     harfbuzz_shaper::shape_text(line, itemizer_, width_map_, font_manager_, scale_factor_);
+    //icu_shaper::shape_text(line, itemizer_, width_map_, font_manager_, scale_factor_);
 }
 
 void text_layout::init_auto_alignment()

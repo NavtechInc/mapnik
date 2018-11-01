@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2014 Artem Pavlenko
+ * Copyright (C) 2015 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,8 +34,10 @@
 #include <mapnik/boolean.hpp>
 #include <mapnik/make_unique.hpp>
 
-// boost
+#pragma GCC diagnostic push
+#include <mapnik/warning_ignore.hpp>
 #include <boost/property_tree/ptree.hpp>
+#pragma GCC diagnostic pop
 
 namespace mapnik
 {
@@ -103,11 +105,11 @@ void text_symbolizer_properties::text_properties_from_xml(xml_node const& node)
     set_property_from_xml<value_double>(expressions.label_position_tolerance, "label-position-tolerance", node);
     set_property_from_xml<value_double>(expressions.minimum_padding, "minimum-padding", node);
     set_property_from_xml<value_double>(expressions.minimum_path_length, "minimum-path-length", node);
-    set_property_from_xml<boolean_type>(expressions.avoid_edges, "avoid-edges", node);
-    set_property_from_xml<boolean_type>(expressions.adjust_edges, "adjust-edges", node);
-    set_property_from_xml<boolean_type>(expressions.fit_marker, "fit-marker", node);
-    set_property_from_xml<boolean_type>(expressions.allow_overlap, "allow-overlap", node);
-    set_property_from_xml<boolean_type>(expressions.largest_bbox_only, "largest-bbox-only", node);
+    set_property_from_xml<value_bool>(expressions.avoid_edges, "avoid-edges", node);
+    set_property_from_xml<value_bool>(expressions.adjust_edges, "adjust-edges", node);
+    set_property_from_xml<value_bool>(expressions.fit_marker, "fit-marker", node);
+    set_property_from_xml<value_bool>(expressions.allow_overlap, "allow-overlap", node);
+    set_property_from_xml<value_bool>(expressions.largest_bbox_only, "largest-bbox-only", node);
     set_property_from_xml<value_double>(expressions.max_char_angle_delta, "max-char-angle-delta", node);
     set_property_from_xml<text_upright_e>(expressions.upright, "upright", node);
 }
@@ -227,14 +229,14 @@ void text_layout_properties::from_xml(xml_node const &node, fontset_map const& f
     set_property_from_xml<double>(text_ratio, "text-ratio", node);
     set_property_from_xml<double>(wrap_width, "wrap-width", node);
     set_property_from_xml<std::string>(wrap_char, "wrap-character", node);
-    set_property_from_xml<boolean_type>(wrap_before, "wrap-before", node);
-    set_property_from_xml<boolean_type>(repeat_wrap_char, "repeat-wrap-character", node);
-    set_property_from_xml<boolean_type>(rotate_displacement, "rotate-displacement", node);
+    set_property_from_xml<value_bool>(wrap_before, "wrap-before", node);
+    set_property_from_xml<value_bool>(repeat_wrap_char, "repeat-wrap-character", node);
+    set_property_from_xml<value_bool>(rotate_displacement, "rotate-displacement", node);
     set_property_from_xml<double>(orientation, "orientation", node);
     set_property_from_xml<vertical_alignment_e>(valign, "vertical-alignment", node);
     set_property_from_xml<horizontal_alignment_e>(halign, "horizontal-alignment", node);
     set_property_from_xml<justify_alignment_e>(jalign, "justify-alignment", node);
-    set_property_from_xml<boolean_type>(shield_layout, "shield-layout", node);
+    set_property_from_xml<value_bool>(shield_layout, "shield-layout", node);
 }
 
 void text_layout_properties::to_xml(boost::property_tree::ptree & node,
@@ -283,13 +285,15 @@ format_properties::format_properties()
       line_spacing(0.0),
       text_opacity(1.0),
       leading_line(false),
-      mask_background(false),
+      mask_background(enumeration_wrapper(MASK_NONE)),
+      mask_color(color(0,0,0,0)),
       halo_opacity(1.0),
       fill(color(0,0,0)),
       halo_fill(color(255,255,255)),
       halo_radius(0.0),
       text_transform(enumeration_wrapper(NONE)),
-      ff_settings() {}
+      ff_settings(),
+      surrounding_box(enumeration_wrapper(SURROUND_NONE))  {}
 
 void format_properties::from_xml(xml_node const& node, fontset_map const& fontsets, bool is_shield)
 {
@@ -307,12 +311,14 @@ void format_properties::from_xml(xml_node const& node, fontset_map const& fontse
         set_property_from_xml<double>(text_opacity, "opacity", node);
     }
     set_property_from_xml<double>(halo_opacity, "halo-opacity", node);
-    set_property_from_xml<boolean_type>(leading_line, "leading-line", node);
-    set_property_from_xml<boolean_type>(mask_background, "mask-background", node);
+    set_property_from_xml<value_bool>(leading_line, "leading-line", node);
+    set_property_from_xml<mask_background_e>(mask_background, "mask-background", node);
+    set_property_from_xml<color>(mask_color, "mask-color", node);
     set_property_from_xml<color>(fill, "fill", node);
     set_property_from_xml<color>(halo_fill, "halo-fill", node);
     set_property_from_xml<text_transform_e>(text_transform,"text-transform", node);
     set_property_from_xml<font_feature_settings>(ff_settings, "font-feature-settings", node);
+    set_property_from_xml<text_surround_e>(surrounding_box, "surrounding-box", node);
 
     optional<std::string> face_name_ = node.get_opt_attr<std::string>("face-name");
     if (face_name_) face_name = *face_name_;
@@ -366,10 +372,12 @@ void format_properties::to_xml(boost::property_tree::ptree & node, bool explicit
     if (!(halo_opacity == dfl.halo_opacity) || explicit_defaults) serialize_property("halo-opacity", halo_opacity, node);
     if (!(leading_line == dfl.leading_line) || explicit_defaults) serialize_property("leading-line", leading_line, node);
     if (!(mask_background == dfl.mask_background) || explicit_defaults) serialize_property("mask-background", mask_background, node);
+    if (!(mask_color == dfl.mask_color) || explicit_defaults) serialize_property("mask-color", mask_color, node);
     if (!(fill == dfl.fill) || explicit_defaults) serialize_property("fill", fill, node);
     if (!(halo_fill == dfl.halo_fill) || explicit_defaults) serialize_property("halo-fill", halo_fill, node);
     if (!(text_transform == dfl.text_transform) || explicit_defaults) serialize_property("text-transform", text_transform, node);
     if (!(ff_settings == dfl.ff_settings) || explicit_defaults) serialize_property("font-feature-settings", ff_settings, node);
+    if (!(surrounding_box == dfl.surrounding_box) || explicit_defaults) serialize_property("surrounding-box", surrounding_box, node);
 }
 
 void format_properties::add_expressions(expression_set & output) const
@@ -382,10 +390,12 @@ void format_properties::add_expressions(expression_set & output) const
     if (is_expression(halo_opacity)) output.insert(util::get<expression_ptr>(halo_opacity));
     if (is_expression(leading_line)) output.insert(util::get<expression_ptr>(leading_line));
     if (is_expression(mask_background)) output.insert(util::get<expression_ptr>(mask_background));
+    if (is_expression(mask_color)) output.insert(util::get<expression_ptr>(mask_color));
     if (is_expression(fill)) output.insert(util::get<expression_ptr>(fill));
     if (is_expression(halo_fill)) output.insert(util::get<expression_ptr>(halo_fill));
     if (is_expression(text_transform)) output.insert(util::get<expression_ptr>(text_transform));
     if (is_expression(ff_settings)) output.insert(util::get<expression_ptr>(ff_settings));
+    if (is_expression(surrounding_box)) output.insert(util::get<expression_ptr>(surrounding_box));
 }
 
 
