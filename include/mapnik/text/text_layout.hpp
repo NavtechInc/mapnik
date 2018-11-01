@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2014 Artem Pavlenko
+ * Copyright (C) 2015 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -88,7 +88,6 @@ public:
     inline double height() const { return height_; }
     // Width of the longest line (in pixels).
     inline double width() const { return width_ ; }
-
     // Line iterator.
     inline const_iterator begin() const { return lines_.begin(); }
     inline const_iterator end() const { return lines_.end(); }

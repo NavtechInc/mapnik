@@ -2,7 +2,7 @@
  *
  * This file is part of Mapnik (c++ mapping toolkit)
  *
- * Copyright (C) 2014 Artem Pavlenko
+ * Copyright (C) 2015 Artem Pavlenko
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -36,9 +36,11 @@
 // stl
 #include <map>
 
-// boost
+#pragma GCC diagnostic push
+#include <mapnik/warning_ignore.hpp>
 #include <boost/optional.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
+#pragma GCC diagnostic pop
 
 namespace mapnik {
 
@@ -62,7 +64,9 @@ struct evaluated_format_properties
     double halo_radius;
     font_feature_settings ff_settings;
     bool leading_line;      //GG draw a leading line to the text
-    bool mask_background;   //GG remove lines behind the text
+    mask_background_e mask_background;   //GG remove lines behind the text
+    color mask_color; //WI the color used to match the background to mask
+    text_surround_e surrounding_box;
 };
 
 struct evaluated_text_properties : util::noncopyable
@@ -127,6 +131,8 @@ struct MAPNIK_DECL format_properties
     symbolizer_base::value_type ff_settings;
     symbolizer_base::value_type leading_line;
     symbolizer_base::value_type mask_background;
+    symbolizer_base::value_type mask_color;
+    symbolizer_base::value_type surrounding_box;
 };
 
 
